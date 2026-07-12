@@ -44,6 +44,7 @@ scout check
 | `scout actions`           | `dev` / `main` Actions status + current failures                      |
 | `scout gitops`            | Staging/prod release PRs for `*-gitops` repos                         |
 | `scout vulns`             | Open Dependabot alerts (critical → low)                               |
+| `scout theme [name]`      | View or set color theme (`cool`, `classic`, `mono`)                   |
 
 Pass optional `owner/repo …` args to any inspect command to override the watch list for that run.
 
@@ -51,7 +52,19 @@ Repos ending in `-gitops` are skipped in the app table and shown under **GitOps*
 
 ## Config
 
-Watch list lives at:
+Watch list:
 
 - macOS: `~/Library/Application Support/scout/repos.json`
 - Linux: `~/.config/scout/repos.json`
+
+Theme (`cool` by default — missing file means cool, nothing is created until you set one):
+
+```bash
+scout theme           # current + available
+scout theme classic   # green/yellow/red
+scout theme cool      # cyan/blue/magenta
+scout theme mono      # no color
+```
+
+Stored in `config.json` next to `repos.json`. Set `NO_COLOR` in the environment to force mono for a single run without changing the saved theme.
+

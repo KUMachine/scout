@@ -1,10 +1,12 @@
-use owo_colors::OwoColorize;
-
 use crate::checks::actions::{BranchReport, LaneStatus, Run};
 use crate::checks::gitops::{GitopsStatus, ReleasePr};
 use crate::checks::issues::Issue;
 use crate::checks::prs::Pr;
 use crate::checks::vulnerabilities::{Alert, AlertSummary};
+use crate::theme::{
+    bold, color_severity, dim, paint_danger, paint_issue, paint_meta, paint_ok, paint_pr, paint_repo,
+    paint_sev_critical, paint_sev_high, paint_sev_low, paint_sev_moderate, paint_title, paint_wait,
+};
 
 fn pluralize(n: usize, singular: &str) -> String {
     if n == 1 {
@@ -27,21 +29,13 @@ pub struct RepoSummary {
     pub alerts: AlertSummary,
 }
 
-#[derive(Clone, Copy)]
-enum Kind {
-    Issue,
-}
-
 /// Render a right-aligned count cell. Zeros are dimmed dashes so the eye
 /// jumps straight to repos that actually have news.
-fn count_cell(n: usize, width: usize, kind: Kind) -> String {
+fn count_cell(n: usize, width: usize) -> String {
     if n == 0 {
-        return format!("{:>width$}", "-").dimmed().to_string();
+        return dim(&format!("{:>width$}", "-"));
     }
-    let text = format!("{n:>width$}");
-    match kind {
-        Kind::Issue => text.yellow().bold().to_string(),
-    }
+    paint_issue(&format!("{n:>width$}"))
 }
 
 fn alert_plain(summary: &AlertSummary) -> String {
@@ -67,30 +61,20 @@ fn alert_plain(summary: &AlertSummary) -> String {
 /// Color-coded severity chips: `2H 1M` (C/H/M/L).
 fn alert_cell(summary: &AlertSummary, width: usize) -> String {
     if summary.total() == 0 {
-        return format!("{:>width$}", "-").dimmed().to_string();
+        return dim(&format!("{:>width$}", "-"));
     }
     let mut parts = Vec::new();
     if summary.critical > 0 {
-        parts.push(format!("{}C", summary.critical).red().bold().to_string());
+        parts.push(paint_sev_critical(&format!("{}C", summary.critical)));
     }
     if summary.high > 0 {
-        parts.push(
-            format!("{}H", summary.high)
-                .bright_red()
-                .bold()
-                .to_string(),
-        );
+        parts.push(paint_sev_high(&format!("{}H", summary.high)));
     }
     if summary.moderate > 0 {
-        parts.push(
-            format!("{}M", summary.moderate)
-                .yellow()
-                .bold()
-                .to_string(),
-        );
+        parts.push(paint_sev_moderate(&format!("{}M", summary.moderate)));
     }
     if summary.low > 0 {
-        parts.push(format!("{}L", summary.low).bright_black().to_string());
+        parts.push(paint_sev_low(&format!("{}L", summary.low)));
     }
     let plain = alert_plain(summary);
     let pad = width.saturating_sub(plain.len());
@@ -117,13 +101,13 @@ fn split_count_cell(
     paint: impl Fn(&str) -> String,
 ) -> String {
     if human == 0 && bots == 0 {
-        return format!("{:>width$}", "-").dimmed().to_string();
+        return dim(&format!("{:>width$}", "-"));
     }
     if bots == 0 {
         return paint(&format!("{human:>width$}"));
     }
     if human == 0 {
-        return format!("{bots:>width$}").dimmed().to_string();
+        return dim(&format!("{bots:>width$}"));
     }
     let plain = format!("{human}+{bots}");
     let pad = width.saturating_sub(plain.len());
@@ -131,16 +115,16 @@ fn split_count_cell(
         "{}{}{}{}",
         " ".repeat(pad),
         paint(&human.to_string()),
-        "+".dimmed(),
-        bots.to_string().dimmed(),
+        dim("+"),
+        dim(&bots.to_string()),
     )
 }
 
 fn lane_mark(status: LaneStatus) -> String {
     match status {
-        LaneStatus::Success => "✓".green().bold().to_string(),
-        LaneStatus::Failure => "✗".red().bold().to_string(),
-        LaneStatus::Unknown => "-".dimmed().to_string(),
+        LaneStatus::Success => paint_ok("✓"),
+        LaneStatus::Failure => paint_danger("✗"),
+        LaneStatus::Unknown => dim("-"),
     }
 }
 
@@ -196,15 +180,15 @@ pub fn summary_table(rows: &[RepoSummary]) {
 
     println!(
         "{}  {}  {}  {}  {}",
-        format!("{REPO_H:<repo_w$}").bold(),
-        format!("{PR_H:>pw$}").bold(),
-        format!("{ISSUE_H:>iw$}").bold(),
-        format!("{RUN_H:<rw$}").bold(),
-        format!("{ALERT_H:>aw$}").bold(),
+        bold(&format!("{REPO_H:<repo_w$}")),
+        bold(&format!("{PR_H:>pw$}")),
+        bold(&format!("{ISSUE_H:>iw$}")),
+        bold(&format!("{RUN_H:<rw$}")),
+        bold(&format!("{ALERT_H:>aw$}")),
     );
 
     let rule_w = repo_w + pw + iw + rw + aw + 8; // 4 two-space gaps
-    println!("{}", "-".repeat(rule_w).dimmed());
+    println!("{}", dim(&"-".repeat(rule_w)));
 
     let (mut tp, mut tpb, mut ti, mut ta) = (
         0usize,
@@ -217,9 +201,9 @@ pub fn summary_table(rows: &[RepoSummary]) {
         let pad = rw.saturating_sub(lanes_plain_len(row.main, row.dev));
         println!(
             "{}  {}  {}  {}{}  {}",
-            format!("{:<repo_w$}", row.repo).bright_green().bold(),
-            split_count_cell(row.prs, row.bot_prs, pw, |s| s.cyan().bold().to_string()),
-            count_cell(row.issues, iw, Kind::Issue),
+            paint_repo(&format!("{:<repo_w$}", row.repo)),
+            split_count_cell(row.prs, row.bot_prs, pw, paint_pr),
+            count_cell(row.issues, iw),
             lanes,
             " ".repeat(pad),
             alert_cell(&row.alerts, aw),
@@ -231,13 +215,13 @@ pub fn summary_table(rows: &[RepoSummary]) {
     }
 
     if rows.len() > 1 {
-        println!("{}", "-".repeat(rule_w).dimmed());
+        println!("{}", dim(&"-".repeat(rule_w)));
         println!(
             "{}  {}  {}  {}  {}",
-            format!("{:<repo_w$}", "TOTAL").dimmed(),
-            split_count_cell(tp, tpb, pw, |s| s.cyan().bold().to_string()),
-            count_cell(ti, iw, Kind::Issue),
-            format!("{:rw$}", "-").dimmed(),
+            dim(&format!("{:<repo_w$}", "TOTAL")),
+            split_count_cell(tp, tpb, pw, paint_pr),
+            count_cell(ti, iw),
+            dim(&format!("{:rw$}", "-")),
             alert_cell(&ta, aw),
         );
     }
@@ -245,17 +229,16 @@ pub fn summary_table(rows: &[RepoSummary]) {
     if ta.total() > 0 || rows.iter().any(|r| r.alerts.total() > 0) {
         println!(
             "{}",
-            "ALERTS  C=critical  H=high  M=moderate  L=low  (Dependabot vulns)"
-                .dimmed()
+            dim("ALERTS  C=critical  H=high  M=moderate  L=low  (Dependabot vulns)")
         );
     }
 }
 
 fn gitops_mark(open: bool) -> String {
     if open {
-        "●".yellow().bold().to_string()
+        paint_wait("●")
     } else {
-        "✓".green().bold().to_string()
+        paint_ok("✓")
     }
 }
 
@@ -270,17 +253,17 @@ fn format_gitops_lanes(status: &GitopsStatus) -> String {
 fn print_gitops_lane(label: &str, pr: &ReleasePr) {
     println!(
         "  {} {} {}  {}",
-        label.yellow().bold(),
-        pr.title.bright_cyan().bold(),
-        format!("#{}", pr.number).cyan().bold(),
-        pr.url.dimmed(),
+        paint_wait(label),
+        paint_title(&pr.title),
+        paint_pr(&format!("#{}", pr.number)),
+        dim(&pr.url),
     );
     if pr.services.is_empty() {
-        println!("    {}", "(no services listed in PR body)".dimmed());
+        println!("    {}", dim("(no services listed in PR body)"));
         return;
     }
     for service in &pr.services {
-        println!("    {} {}", "•".dimmed(), service.bright_green().bold());
+        println!("    {} {}", dim("•"), paint_repo(service));
     }
 }
 
@@ -291,7 +274,7 @@ pub fn gitops_section(rows: &[GitopsStatus]) {
     }
 
     println!();
-    println!("{}", "GitOps".bold());
+    println!("{}", bold("GitOps"));
 
     const REPO_H: &str = "REPO";
     const LANE_H: &str = "RELEASES";
@@ -306,16 +289,16 @@ pub fn gitops_section(rows: &[GitopsStatus]) {
 
     println!(
         "{}  {}",
-        format!("{REPO_H:<repo_w$}").bold(),
-        format!("{LANE_H:<lane_w$}").bold(),
+        bold(&format!("{REPO_H:<repo_w$}")),
+        bold(&format!("{LANE_H:<lane_w$}")),
     );
-    println!("{}", "-".repeat(repo_w + lane_w + 2).dimmed());
+    println!("{}", dim(&"-".repeat(repo_w + lane_w + 2)));
 
     for status in rows {
         let lanes = format_gitops_lanes(status);
         println!(
             "{}  {}",
-            format!("{:<repo_w$}", status.repo).bright_green().bold(),
+            paint_repo(&format!("{:<repo_w$}", status.repo)),
             lanes,
         );
         if let Some(pr) = &status.staging {
@@ -328,29 +311,23 @@ pub fn gitops_section(rows: &[GitopsStatus]) {
 
     println!(
         "{}",
-        "RELEASES  ● = open PR waiting to merge  ✓ = clear".dimmed()
+        dim("RELEASES  ● = open PR waiting to merge  ✓ = clear")
     );
 }
 
 /// Print main/dev lane status, then any current failed runs for a repo.
 pub fn actions_report(repo: &str, report: &BranchReport) {
-    println!(
-        "{}  {}",
-        repo.bright_green().bold(),
-        format_lanes(report.main, report.dev),
-    );
+    println!("{}  {}", paint_repo(repo), format_lanes(report.main, report.dev),);
 
-    let (human, bots): (Vec<&Run>, Vec<&Run>) = report
-        .failures
-        .iter()
-        .partition(|run| !run.is_bot());
+    let (human, bots): (Vec<&Run>, Vec<&Run>) =
+        report.failures.iter().partition(|run| !run.is_bot());
 
     for run in &human {
         print_run(run, false);
     }
     if !bots.is_empty() {
         if !human.is_empty() {
-            println!("  {}", "bot".dimmed());
+            println!("  {}", dim("bot"));
         }
         for run in &bots {
             print_run(run, true);
@@ -400,8 +377,8 @@ pub fn repo_report(
 
     println!(
         "{} {}",
-        repo.bright_green().bold(),
-        format!("({})", parts.join(", ")).dimmed(),
+        paint_repo(repo),
+        dim(&format!("({})", parts.join(", "))),
     );
 
     for pr in &human_prs {
@@ -409,7 +386,7 @@ pub fn repo_report(
     }
     if !bot_prs.is_empty() {
         if !human_prs.is_empty() {
-            println!("  {}", "bot".dimmed());
+            println!("  {}", dim("bot"));
         }
         for pr in &bot_prs {
             print_pr(pr, true);
@@ -419,11 +396,11 @@ pub fn repo_report(
     for issue in issues {
         println!(
             "  {} {}  {} {}  {}",
-            format!("issue #{}", issue.number).yellow().bold(),
-            issue.title.bright_cyan().bold(),
-            "by".dimmed(),
-            format!("@{}", issue.author.login).yellow(),
-            issue.url.dimmed(),
+            paint_issue(&format!("issue #{}", issue.number)),
+            paint_title(&issue.title),
+            dim("by"),
+            paint_meta(&format!("@{}", issue.author.login)),
+            dim(&issue.url),
         );
     }
 
@@ -432,7 +409,7 @@ pub fn repo_report(
     }
     if !bot_runs.is_empty() {
         if !human_runs.is_empty() {
-            println!("  {}", "bot".dimmed());
+            println!("  {}", dim("bot"));
         }
         for run in &bot_runs {
             print_run(run, true);
@@ -444,48 +421,48 @@ pub fn repo_report(
         let severity = color_severity(sev);
         println!(
             "  {} {} in {}  {}  {}",
-            format!("alert #{}", alert.number).red().bold(),
+            paint_danger(&format!("alert #{}", alert.number)),
             severity,
-            alert.dependency.package.name.bright_cyan().bold(),
+            paint_repo(&alert.dependency.package.name),
             alert.security_advisory.summary,
-            alert.html_url.dimmed(),
+            dim(&alert.html_url),
         );
     }
 
     println!();
 }
 
-fn print_pr(pr: &Pr, dim: bool) {
+fn print_pr(pr: &Pr, quiet: bool) {
     let draft = if pr.is_draft {
-        format!(" {}", "(draft)".dimmed())
+        format!(" {}", dim("(draft)"))
     } else {
         String::new()
     };
 
-    if dim {
+    if quiet {
         println!(
             "  {} {}{}  {} {}  {}",
-            format!("PR #{}", pr.number).dimmed(),
-            pr.title.dimmed(),
+            dim(&format!("PR #{}", pr.number)),
+            dim(&pr.title),
             draft,
-            "by".dimmed(),
-            format!("@{}", pr.author.login).dimmed(),
-            pr.url.dimmed(),
+            dim("by"),
+            dim(&format!("@{}", pr.author.login)),
+            dim(&pr.url),
         );
     } else {
         println!(
             "  {} {}{}  {} {}  {}",
-            format!("PR #{}", pr.number).cyan().bold(),
-            pr.title.bright_cyan().bold(),
+            paint_pr(&format!("PR #{}", pr.number)),
+            paint_title(&pr.title),
             draft,
-            "by".dimmed(),
-            format!("@{}", pr.author.login).green(),
-            pr.url.dimmed(),
+            dim("by"),
+            paint_meta(&format!("@{}", pr.author.login)),
+            dim(&pr.url),
         );
     }
 }
 
-fn print_run(run: &Run, dim: bool) {
+fn print_run(run: &Run, quiet: bool) {
     let title = if run.display_title.is_empty() {
         run.name.as_str()
     } else {
@@ -498,33 +475,22 @@ fn print_run(run: &Run, dim: bool) {
     };
     let lane = format!("[{workflow} @ {}]", run.head_branch);
 
-    if dim {
+    if quiet {
         println!(
             "  {} {} {}  {}",
-            format!("run #{}", run.database_id).dimmed(),
-            title.dimmed(),
-            lane.dimmed(),
-            run.url.dimmed(),
+            dim(&format!("run #{}", run.database_id)),
+            dim(title),
+            dim(&lane),
+            dim(&run.url),
         );
     } else {
         println!(
             "  {} {} {}  {}",
-            format!("run #{}", run.database_id).bright_red().bold(),
-            title.bright_cyan().bold(),
-            lane.dimmed(),
-            run.url.dimmed(),
+            paint_danger(&format!("run #{}", run.database_id)),
+            paint_title(title),
+            dim(&lane),
+            dim(&run.url),
         );
     }
 }
 
-/// Color-code a Dependabot severity label for quick scanning.
-fn color_severity(severity: &str) -> String {
-    let label = format!("[{}]", severity.to_uppercase());
-    match severity.to_ascii_lowercase().as_str() {
-        "low" => label.bright_black().to_string(),
-        "moderate" | "medium" => label.yellow().bold().to_string(),
-        "high" => label.bright_red().bold().to_string(),
-        "critical" => label.red().bold().to_string(),
-        _ => label.to_string(),
-    }
-}

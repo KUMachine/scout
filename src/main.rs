@@ -2,12 +2,13 @@ mod checks;
 mod config;
 mod gh;
 mod render;
+mod theme;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use owo_colors::OwoColorize;
 
 use crate::checks::{actions, gitops, issues, prs, snapshot, vulnerabilities};
+use crate::theme::{Theme, bold, dim, paint_danger, paint_ok, paint_repo, paint_warning};
 
 #[derive(Parser)]
 #[command(
@@ -24,7 +25,10 @@ Inspect:
   issues  open issues
   actions main/dev Actions status
   gitops  staging/prod release PRs
-  vulns   open Dependabot alerts"
+  vulns   open Dependabot alerts
+
+Settings:
+  theme   view or set color theme (cool, classic, mono)"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -76,18 +80,35 @@ enum Command {
         /// Repos to check (owner/repo ...); defaults to the watch list
         repos: Vec<String>,
     },
+    /// View or set the color theme
+    Theme {
+        /// Theme name: cool, classic, or mono (omit to list)
+        name: Option<String>,
+    },
 }
 
 fn main() {
     let cli = Cli::parse();
     if let Err(err) = run(cli) {
         // One clean top-level message, not a Rust panic / backtrace wall.
-        eprintln!("{}: {:#}", "error".red().bold(), err);
+        // Theme may not be applied yet if init failed early.
+        eprintln!("{}: {:#}", paint_danger("error"), err);
         std::process::exit(1);
     }
 }
 
+fn apply_theme() -> Result<()> {
+    let configured = config::load_theme()?;
+    theme::apply(theme::effective_from_config(configured));
+    Ok(())
+}
+
 fn run(cli: Cli) -> Result<()> {
+    // Theme command applies after resolving; everything else needs paint helpers ready.
+    if !matches!(cli.command, Command::Theme { .. }) {
+        apply_theme()?;
+    }
+
     match cli.command {
         Command::Add { repo } => cmd_add(&repo),
         Command::Remove { repo } => cmd_remove(&repo),
@@ -98,6 +119,7 @@ fn run(cli: Cli) -> Result<()> {
         Command::Actions { repos } => cmd_actions(repos),
         Command::Gitops { repos } => cmd_gitops(repos),
         Command::Vulns { repos } => cmd_vulns(repos),
+        Command::Theme { name } => cmd_theme(name),
     }
 }
 
@@ -111,7 +133,7 @@ fn cmd_add(repo: &str) -> Result<()> {
     repos.push(slug.clone());
     repos.sort();
     config::save(&repos)?;
-    println!("{} added {slug}", "+".green().bold());
+    println!("{} added {slug}", paint_ok("+"));
     Ok(())
 }
 
@@ -125,7 +147,7 @@ fn cmd_remove(repo: &str) -> Result<()> {
         return Ok(());
     }
     config::save(&repos)?;
-    println!("{} removed {slug}", "-".red().bold());
+    println!("{} removed {slug}", paint_danger("-"));
     Ok(())
 }
 
@@ -138,13 +160,12 @@ fn cmd_list() -> Result<()> {
 
     println!(
         "{} {}",
-        "Watching".bold(),
-        format!(
+        bold("Watching"),
+        dim(&format!(
             "{} repo{}",
             repos.len(),
             if repos.len() == 1 { "" } else { "s" }
-        )
-        .dimmed(),
+        )),
     );
 
     // Group by owner so org-heavy watch lists stay scannable.
@@ -159,18 +180,49 @@ fn cmd_list() -> Result<()> {
     }
 
     for (owner, names) in &by_owner {
-        println!("{}", owner.dimmed());
+        println!("{}", dim(owner));
         for name in names {
-            println!("  {}", name.bright_green().bold());
+            println!("  {}", paint_repo(name));
         }
     }
 
     println!();
     println!(
         "{} {}",
-        "config".dimmed(),
-        config::repos_file()?.display().to_string().dimmed()
+        dim("config"),
+        dim(&config::repos_file()?.display().to_string())
     );
+    Ok(())
+}
+
+fn cmd_theme(name: Option<String>) -> Result<()> {
+    match name {
+        None => {
+            let current = config::load_theme()?;
+            theme::apply(theme::effective_from_config(current));
+            println!("{} {}", bold("theme"), paint_ok(current.as_str()));
+            if std::env::var_os("NO_COLOR").is_some() {
+                println!("{}", dim("(NO_COLOR set — output is mono for this run)"));
+            }
+            println!();
+            for t in Theme::ALL {
+                let marker = if *t == current { "*" } else { " " };
+                println!("{marker} {}", t.as_str());
+            }
+            println!();
+            println!(
+                "{} {}",
+                dim("config"),
+                dim(&config::config_file()?.display().to_string())
+            );
+        }
+        Some(name) => {
+            let theme = Theme::parse(&name)?;
+            config::save_theme(theme)?;
+            theme::apply(theme::effective_from_config(theme));
+            println!("{} theme set to {}", paint_ok("✓"), paint_ok(theme.as_str()));
+        }
+    }
     Ok(())
 }
 
@@ -194,7 +246,7 @@ fn soft<T>(repo: &str, what: &str, result: Result<Vec<T>>) -> Vec<T> {
         Err(err) => {
             eprintln!(
                 "{}: {what} check on {repo} failed: {:#}",
-                "warning".yellow().bold(),
+                paint_warning("warning"),
                 err
             );
             Vec::new()
@@ -237,7 +289,7 @@ fn cmd_check(repo_args: Vec<String>) -> Result<()> {
                 Err(err) => {
                     eprintln!(
                         "{}: batched overview failed ({:#}); falling back to per-repo fetches",
-                        "warning".yellow().bold(),
+                        paint_warning("warning"),
                         err
                     );
                     map_repos_parallel(&app_repos, |repo| {
@@ -296,7 +348,7 @@ fn soft_gitops(repo: &str, result: Result<gitops::GitopsStatus>) -> gitops::Gito
         Err(err) => {
             eprintln!(
                 "{}: gitops check on {repo} failed: {:#}",
-                "warning".yellow().bold(),
+                paint_warning("warning"),
                 err
             );
             gitops::GitopsStatus {
@@ -313,7 +365,7 @@ fn soft_branches(repo: &str, result: Result<actions::BranchReport>) -> actions::
         Err(err) => {
             eprintln!(
                 "{}: Actions check on {repo} failed: {:#}",
-                "warning".yellow().bold(),
+                paint_warning("warning"),
                 err
             );
             actions::BranchReport::default()
