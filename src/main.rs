@@ -11,7 +11,7 @@ use crate::checks::{actions, issues, prs, vulnerabilities};
 
 #[derive(Parser)]
 #[command(
-    name = "repo-watch",
+    name = "scout",
     about = "Watch a list of GitHub repos and see what's currently open",
     version
 )]
@@ -93,7 +93,7 @@ fn cmd_remove(repo: &str) -> Result<()> {
 fn cmd_list() -> Result<()> {
     let repos = config::load()?;
     if repos.is_empty() {
-        println!("No repos are being watched yet. Add one with `repo-watch add owner/repo`.");
+        println!("No repos are being watched yet. Add one with `scout add owner/repo`.");
         return Ok(());
     }
     println!("Watching {} repo(s):", repos.len());
@@ -132,7 +132,7 @@ fn cmd_check(repo_args: Vec<String>, detailed: bool) -> Result<()> {
     };
 
     if repos.is_empty() {
-        println!("No repos are being watched yet. Add one with `repo-watch add owner/repo`.");
+        println!("No repos are being watched yet. Add one with `scout add owner/repo`.");
         return Ok(());
     }
 

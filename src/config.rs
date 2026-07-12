@@ -3,12 +3,12 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 
-/// Resolve the `repo-watch` config directory (cross-platform via `dirs`),
+/// Resolve the `scout` config directory (cross-platform via `dirs`),
 /// creating it if it does not yet exist.
 pub fn config_dir() -> Result<PathBuf> {
     let dir = dirs::config_dir()
         .context("could not determine the user config directory")?
-        .join("repo-watch");
+        .join("scout");
     fs::create_dir_all(&dir)
         .with_context(|| format!("failed to create config directory {}", dir.display()))?;
     Ok(dir)
@@ -34,8 +34,8 @@ pub fn load() -> Result<Vec<String>> {
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let data = fs::read_to_string(&path)
-        .with_context(|| format!("failed to read {}", path.display()))?;
+    let data =
+        fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
     if data.trim().is_empty() {
         return Ok(Vec::new());
     }

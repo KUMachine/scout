@@ -229,7 +229,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "scoutrep"
+name = "scout"
 version = "0.1.0"
 dependencies = [
  "anyhow",
