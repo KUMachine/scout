@@ -7,13 +7,23 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use owo_colors::OwoColorize;
 
-use crate::checks::{actions, issues, prs, vulnerabilities};
+use crate::checks::{actions, issues, prs, snapshot, vulnerabilities};
 
 #[derive(Parser)]
 #[command(
     name = "scout",
     about = "Watch a list of GitHub repos and see what's currently open",
-    version
+    version,
+    after_help = "\
+Watch list:
+  add, remove, list
+
+Inspect:
+  check   compact overview table
+  prs     open pull requests
+  issues  open issues
+  actions main/dev Actions status
+  vulns   open Dependabot alerts"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -34,13 +44,31 @@ enum Command {
     },
     /// Print the watch list
     List,
-    /// Show current open PRs, issues, failed runs, and vulnerability alerts
+
+    /// Compact overview of open PRs, issues, failed runs, and vulns
     Check {
         /// Repos to check (owner/repo ...); defaults to the watch list
         repos: Vec<String>,
-        /// Print the full per-item breakdown instead of the compact table
-        #[arg(long)]
-        detailed: bool,
+    },
+    /// List open pull requests
+    Prs {
+        /// Repos to check (owner/repo ...); defaults to the watch list
+        repos: Vec<String>,
+    },
+    /// List open issues
+    Issues {
+        /// Repos to check (owner/repo ...); defaults to the watch list
+        repos: Vec<String>,
+    },
+    /// Show main/dev Actions status (and any current failures)
+    Actions {
+        /// Repos to check (owner/repo ...); defaults to the watch list
+        repos: Vec<String>,
+    },
+    /// List open Dependabot vulnerability alerts
+    Vulns {
+        /// Repos to check (owner/repo ...); defaults to the watch list
+        repos: Vec<String>,
     },
 }
 
@@ -58,7 +86,11 @@ fn run(cli: Cli) -> Result<()> {
         Command::Add { repo } => cmd_add(&repo),
         Command::Remove { repo } => cmd_remove(&repo),
         Command::List => cmd_list(),
-        Command::Check { repos, detailed } => cmd_check(repos, detailed),
+        Command::Check { repos } => cmd_check(repos),
+        Command::Prs { repos } => cmd_prs(repos),
+        Command::Issues { repos } => cmd_issues(repos),
+        Command::Actions { repos } => cmd_actions(repos),
+        Command::Vulns { repos } => cmd_vulns(repos),
     }
 }
 
@@ -103,6 +135,18 @@ fn cmd_list() -> Result<()> {
     Ok(())
 }
 
+/// Resolve the target repo list: explicit args, or the watch list.
+fn resolve_repos(repo_args: Vec<String>) -> Result<Vec<String>> {
+    if repo_args.is_empty() {
+        config::load()
+    } else {
+        repo_args
+            .iter()
+            .map(|r| config::validate_slug(r))
+            .collect()
+    }
+}
+
 /// Run a per-repo check, downgrading any failure to a stderr warning so
 /// that one bad repo/check never aborts the whole run.
 fn soft<T>(repo: &str, what: &str, result: Result<Vec<T>>) -> Vec<T> {
@@ -119,62 +163,169 @@ fn soft<T>(repo: &str, what: &str, result: Result<Vec<T>>) -> Vec<T> {
     }
 }
 
-fn cmd_check(repo_args: Vec<String>, detailed: bool) -> Result<()> {
-    gh::ensure_available()?;
+/// Map over repos in parallel, preserving input order.
+fn map_repos_parallel<T: Send>(repos: &[String], f: impl Fn(&str) -> T + Sync) -> Vec<T> {
+    std::thread::scope(|s| {
+        let handles: Vec<_> = repos.iter().map(|repo| s.spawn(|| f(repo))).collect();
+        handles
+            .into_iter()
+            .map(|h| h.join().expect("worker thread panicked"))
+            .collect()
+    })
+}
 
-    let repos = if repo_args.is_empty() {
-        config::load()?
-    } else {
-        repo_args
-            .iter()
-            .map(|r| config::validate_slug(r))
-            .collect::<Result<Vec<_>>>()?
-    };
+fn cmd_check(repo_args: Vec<String>) -> Result<()> {
+    gh::ensure_available()?;
+    let repos = resolve_repos(repo_args)?;
 
     if repos.is_empty() {
         println!("No repos are being watched yet. Add one with `scout add owner/repo`.");
         return Ok(());
     }
 
-    let mut total = 0usize;
-    // Compact-table rows, only populated when not running --detailed.
+    // GraphQL overview + Actions counts overlap in wall-clock time.
+    let (counts, runs_by_repo) = std::thread::scope(|s| {
+        let counts_h = s.spawn(|| match snapshot::fetch_counts(&repos) {
+            Ok(c) => c,
+            Err(err) => {
+                eprintln!(
+                    "{}: batched overview failed ({:#}); falling back to per-repo fetches",
+                    "warning".yellow().bold(),
+                    err
+                );
+                map_repos_parallel(&repos, |repo| {
+                    let prs = soft(repo, "PRs", prs::fetch(repo));
+                    let issues = soft(repo, "issues", issues::fetch(repo));
+                    let alerts = soft(repo, "vulnerability", vulnerabilities::fetch(repo));
+                    snapshot::RepoCounts {
+                        human_prs: prs.iter().filter(|p| !p.author.is_bot()).count(),
+                        bot_prs: prs.iter().filter(|p| p.author.is_bot()).count(),
+                        issues: issues.len(),
+                        alerts: vulnerabilities::AlertSummary::from_alerts(&alerts),
+                    }
+                })
+            }
+        });
+        let runs_h = s.spawn(|| {
+            map_repos_parallel(&repos, |repo| soft_branches(repo, actions::inspect(repo)))
+        });
+        (
+            counts_h.join().expect("overview thread panicked"),
+            runs_h.join().expect("actions thread panicked"),
+        )
+    });
+
     let mut summaries: Vec<render::RepoSummary> = Vec::new();
+    for ((repo, snap), branches) in repos.iter().zip(counts).zip(runs_by_repo) {
+        summaries.push(render::RepoSummary {
+            repo: repo.clone(),
+            prs: snap.human_prs,
+            bot_prs: snap.bot_prs,
+            issues: snap.issues,
+            main: branches.main,
+            dev: branches.dev,
+            alerts: snap.alerts,
+        });
+    }
 
-    for repo in &repos {
-        let prs = soft(repo, "PRs", prs::fetch(repo));
-        let issues = soft(repo, "issues", issues::fetch(repo));
-        let runs = soft(repo, "Actions", actions::fetch(repo));
-        let alerts = soft(repo, "vulnerability", vulnerabilities::fetch(repo));
+    render::summary_table(&summaries);
+    Ok(())
+}
 
-        let has_any =
-            !(prs.is_empty() && issues.is_empty() && runs.is_empty() && alerts.is_empty());
-        if !has_any {
+fn soft_branches(repo: &str, result: Result<actions::BranchReport>) -> actions::BranchReport {
+    match result {
+        Ok(n) => n,
+        Err(err) => {
+            eprintln!(
+                "{}: Actions check on {repo} failed: {:#}",
+                "warning".yellow().bold(),
+                err
+            );
+            actions::BranchReport::default()
+        }
+    }
+}
+
+/// Shared loop for focused inspect commands: fetch one category per repo
+/// (in parallel), skip quiet repos, and print the full item list.
+fn cmd_focused<T: Send>(
+    repo_args: Vec<String>,
+    what: &str,
+    empty_msg: &str,
+    fetch: impl Fn(&str) -> Result<Vec<T>> + Sync,
+    render_one: impl Fn(&str, &[T]),
+) -> Result<()> {
+    gh::ensure_available()?;
+    let repos = resolve_repos(repo_args)?;
+
+    if repos.is_empty() {
+        println!("No repos are being watched yet. Add one with `scout add owner/repo`.");
+        return Ok(());
+    }
+
+    let results = map_repos_parallel(&repos, |repo| soft(repo, what, fetch(repo)));
+
+    let mut any = false;
+    for (repo, items) in repos.iter().zip(results) {
+        if items.is_empty() {
             continue;
         }
-        total += prs.len() + issues.len() + runs.len() + alerts.len();
-
-        if detailed {
-            let pr_refs: Vec<&_> = prs.iter().collect();
-            let issue_refs: Vec<&_> = issues.iter().collect();
-            let run_refs: Vec<&_> = runs.iter().collect();
-            let alert_refs: Vec<&_> = alerts.iter().collect();
-            render::repo_report(repo, &pr_refs, &issue_refs, &run_refs, &alert_refs);
-        } else {
-            summaries.push(render::RepoSummary {
-                repo: repo.clone(),
-                prs: prs.len(),
-                issues: issues.len(),
-                runs: runs.len(),
-                alerts: alerts.len(),
-            });
-        }
+        any = true;
+        render_one(repo, &items);
     }
 
-    if total == 0 {
-        println!("Nothing open across {} repo(s).", repos.len());
-    } else if !detailed {
-        render::summary_table(&summaries);
+    if !any {
+        println!("{empty_msg} across {} repo(s).", repos.len());
     }
-
     Ok(())
+}
+
+fn cmd_prs(repo_args: Vec<String>) -> Result<()> {
+    cmd_focused(repo_args, "PRs", "No open PRs", prs::fetch, |repo, items| {
+        let refs: Vec<&_> = items.iter().collect();
+        render::repo_report(repo, &refs, &[], &[], &[]);
+    })
+}
+
+fn cmd_issues(repo_args: Vec<String>) -> Result<()> {
+    cmd_focused(
+        repo_args,
+        "issues",
+        "No open issues",
+        issues::fetch,
+        |repo, items| {
+            let refs: Vec<&_> = items.iter().collect();
+            render::repo_report(repo, &[], &refs, &[], &[]);
+        },
+    )
+}
+
+fn cmd_actions(repo_args: Vec<String>) -> Result<()> {
+    gh::ensure_available()?;
+    let repos = resolve_repos(repo_args)?;
+
+    if repos.is_empty() {
+        println!("No repos are being watched yet. Add one with `scout add owner/repo`.");
+        return Ok(());
+    }
+
+    let reports = map_repos_parallel(&repos, |repo| soft_branches(repo, actions::inspect(repo)));
+
+    for (repo, report) in repos.iter().zip(reports) {
+        render::actions_report(repo, &report);
+    }
+    Ok(())
+}
+
+fn cmd_vulns(repo_args: Vec<String>) -> Result<()> {
+    cmd_focused(
+        repo_args,
+        "vulnerability",
+        "No vulnerability alerts",
+        vulnerabilities::fetch,
+        |repo, items| {
+            let refs: Vec<&_> = items.iter().collect();
+            render::repo_report(repo, &[], &[], &[], &refs);
+        },
+    )
 }
