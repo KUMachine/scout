@@ -1,11 +1,12 @@
 //! Batched overview fetch for `scout check`: one GraphQL call for PR/issue/vuln
 //! counts across many repos (instead of 3 `gh` invocations per repo).
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use serde::Deserialize;
 
 use crate::checks::Author;
 use crate::checks::vulnerabilities::AlertSummary;
+use crate::config;
 use crate::gh;
 
 #[derive(Debug, Default)]
@@ -86,7 +87,7 @@ pub fn fetch_counts(repos: &[String]) -> Result<Vec<RepoCounts>> {
 
     let mut query = String::from("query {\n");
     for (i, repo) in repos.iter().enumerate() {
-        let (owner, name) = split_slug(repo)?;
+        let (owner, name) = config::split_repo(repo)?;
         let owner = gql_escape(owner);
         let name = gql_escape(name);
         // Cap PR/alert nodes at 100 — enough for summary classification.
@@ -159,14 +160,4 @@ pub fn fetch_counts(repos: &[String]) -> Result<Vec<RepoCounts>> {
     }
 
     Ok(out)
-}
-
-fn split_slug(repo: &str) -> Result<(&str, &str)> {
-    let (owner, name) = repo
-        .split_once('/')
-        .with_context(|| format!("invalid repo slug `{repo}`"))?;
-    if owner.is_empty() || name.is_empty() {
-        bail!("invalid repo slug `{repo}`");
-    }
-    Ok((owner, name))
 }

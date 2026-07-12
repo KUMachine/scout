@@ -2,8 +2,9 @@ use std::io::ErrorKind;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use anyhow::{Context, Result, bail};
 use serde::de::DeserializeOwned;
+
+use anyhow::{Context, Result, bail};
 use serde_json::Value;
 
 /// Preflight: verify the `gh` binary exists and is authenticated.
@@ -92,4 +93,9 @@ pub fn run_graphql(query: &str) -> Result<Value> {
         .and_then(|m| m.as_str())
         .unwrap_or(stderr.trim());
     bail!("GraphQL query failed: {msg}");
+}
+
+/// List open PRs or issues via `gh <kind> list --json …`.
+pub fn list_items<T: DeserializeOwned>(kind: &str, repo: &str, fields: &str) -> Result<Vec<T>> {
+    run_json(&[kind, "list", "--repo", repo, "--json", fields])
 }

@@ -18,12 +18,9 @@ pub struct Pr {
 }
 
 pub fn fetch(repo: &str) -> Result<Vec<Pr>> {
-    gh::run_json(&[
+    gh::list_items(
         "pr",
-        "list",
-        "--repo",
         repo,
-        "--json",
         "number,title,author,url,createdAt,isDraft",
-    ])
+    )
 }

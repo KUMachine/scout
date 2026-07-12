@@ -64,6 +64,12 @@ fn classify(pr: &RawPr) -> Option<Lane> {
     }
 }
 
+fn push_unique(out: &mut Vec<String>, name: String) {
+    if !name.is_empty() && !out.iter().any(|s| s == &name) {
+        out.push(name);
+    }
+}
+
 /// Pull service names from a release PR body.
 ///
 /// Supports:
@@ -74,13 +80,10 @@ pub fn parse_waiting_services(body: &str) -> Vec<String> {
 
     for line in body.lines() {
         let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix("- ") {
-            if let Some((name, _)) = rest.split_once(':') {
-                let name = name.trim();
-                if !name.is_empty() && !out.iter().any(|s| s == name) {
-                    out.push(name.to_string());
-                }
-            }
+        if let Some(rest) = trimmed.strip_prefix("- ")
+            && let Some((name, _)) = rest.split_once(':')
+        {
+            push_unique(&mut out, name.trim().to_string());
         }
     }
 
@@ -92,9 +95,7 @@ pub fn parse_waiting_services(body: &str) -> Vec<String> {
         };
         let inner = after[..end].trim();
         if let Some(name) = summary_service_name(inner) {
-            if !out.iter().any(|s| s == &name) {
-                out.push(name);
-            }
+            push_unique(&mut out, name);
         }
         rest = &after[end + "</summary>".len()..];
     }

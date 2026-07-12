@@ -7,13 +7,10 @@ use crate::theme::{
     bold, color_severity, dim, paint_danger, paint_issue, paint_meta, paint_ok, paint_pr, paint_repo,
     paint_sev_critical, paint_sev_high, paint_sev_low, paint_sev_moderate, paint_title, paint_wait,
 };
+use crate::util;
 
-fn pluralize(n: usize, singular: &str) -> String {
-    if n == 1 {
-        format!("{n} {singular}")
-    } else {
-        format!("{n} {singular}s")
-    }
+fn col_width<'a>(values: impl Iterator<Item = usize> + 'a, header_len: usize) -> usize {
+    values.chain(std::iter::once(header_len)).max().unwrap_or(header_len)
 }
 
 /// One row of the compact `check` table: new-item counts per repo.
@@ -42,20 +39,38 @@ fn alert_plain(summary: &AlertSummary) -> String {
     if summary.total() == 0 {
         return "-".into();
     }
+    alert_severity_parts(summary)
+        .into_iter()
+        .map(|(n, suffix)| format!("{n}{suffix}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn alert_severity_parts(summary: &AlertSummary) -> Vec<(usize, char)> {
     let mut parts = Vec::new();
     if summary.critical > 0 {
-        parts.push(format!("{}C", summary.critical));
+        parts.push((summary.critical, 'C'));
     }
     if summary.high > 0 {
-        parts.push(format!("{}H", summary.high));
+        parts.push((summary.high, 'H'));
     }
     if summary.moderate > 0 {
-        parts.push(format!("{}M", summary.moderate));
+        parts.push((summary.moderate, 'M'));
     }
     if summary.low > 0 {
-        parts.push(format!("{}L", summary.low));
+        parts.push((summary.low, 'L'));
     }
-    parts.join(" ")
+    parts
+}
+
+fn paint_alert_part(n: usize, suffix: char) -> String {
+    let label = format!("{n}{suffix}");
+    match suffix {
+        'C' => paint_sev_critical(&label),
+        'H' => paint_sev_high(&label),
+        'M' => paint_sev_moderate(&label),
+        _ => paint_sev_low(&label),
+    }
 }
 
 /// Color-coded severity chips: `2H 1M` (C/H/M/L).
@@ -63,19 +78,10 @@ fn alert_cell(summary: &AlertSummary, width: usize) -> String {
     if summary.total() == 0 {
         return dim(&format!("{:>width$}", "-"));
     }
-    let mut parts = Vec::new();
-    if summary.critical > 0 {
-        parts.push(paint_sev_critical(&format!("{}C", summary.critical)));
-    }
-    if summary.high > 0 {
-        parts.push(paint_sev_high(&format!("{}H", summary.high)));
-    }
-    if summary.moderate > 0 {
-        parts.push(paint_sev_moderate(&format!("{}M", summary.moderate)));
-    }
-    if summary.low > 0 {
-        parts.push(paint_sev_low(&format!("{}L", summary.low)));
-    }
+    let parts: Vec<String> = alert_severity_parts(summary)
+        .into_iter()
+        .map(|(n, suffix)| paint_alert_part(n, suffix))
+        .collect();
     let plain = alert_plain(summary);
     let pad = width.saturating_sub(plain.len());
     format!("{}{}", " ".repeat(pad), parts.join(" "))
@@ -151,31 +157,19 @@ pub fn summary_table(rows: &[RepoSummary]) {
     const RUN_H: &str = "RUNS";
     const ALERT_H: &str = "ALERTS";
 
-    let repo_w = rows
-        .iter()
-        .map(|r| r.repo.len())
-        .chain(std::iter::once(REPO_H.len()))
-        .max()
-        .unwrap_or(REPO_H.len());
-
-    let pw = rows
-        .iter()
-        .map(|r| split_cell_plain_len(r.prs, r.bot_prs))
-        .chain(std::iter::once(PR_H.len()))
-        .max()
-        .unwrap_or(PR_H.len());
-    let rw = rows
-        .iter()
-        .map(|r| lanes_plain_len(r.main, r.dev))
-        .chain(std::iter::once(RUN_H.len()))
-        .max()
-        .unwrap_or(RUN_H.len());
-    let aw = rows
-        .iter()
-        .map(|r| alert_plain(&r.alerts).len())
-        .chain(std::iter::once(ALERT_H.len()))
-        .max()
-        .unwrap_or(ALERT_H.len());
+    let repo_w = col_width(rows.iter().map(|r| r.repo.len()), REPO_H.len());
+    let pw = col_width(
+        rows.iter().map(|r| split_cell_plain_len(r.prs, r.bot_prs)),
+        PR_H.len(),
+    );
+    let rw = col_width(
+        rows.iter().map(|r| lanes_plain_len(r.main, r.dev)),
+        RUN_H.len(),
+    );
+    let aw = col_width(
+        rows.iter().map(|r| alert_plain(&r.alerts).len()),
+        ALERT_H.len(),
+    );
     let iw = ISSUE_H.len();
 
     println!(
@@ -279,12 +273,7 @@ pub fn gitops_section(rows: &[GitopsStatus]) {
     const REPO_H: &str = "REPO";
     const LANE_H: &str = "RELEASES";
 
-    let repo_w = rows
-        .iter()
-        .map(|r| r.repo.len())
-        .chain(std::iter::once(REPO_H.len()))
-        .max()
-        .unwrap_or(REPO_H.len());
+    let repo_w = col_width(rows.iter().map(|r| r.repo.len()), REPO_H.len());
     let lane_w = "stg[●] prod[●]".len().max(LANE_H.len());
 
     println!(
@@ -317,22 +306,12 @@ pub fn gitops_section(rows: &[GitopsStatus]) {
 
 /// Print main/dev lane status, then any current failed runs for a repo.
 pub fn actions_report(repo: &str, report: &BranchReport) {
-    println!("{}  {}", paint_repo(repo), format_lanes(report.main, report.dev),);
+    println!("{}  {}", paint_repo(repo), format_lanes(report.main, report.dev));
 
     let (human, bots): (Vec<&Run>, Vec<&Run>) =
         report.failures.iter().partition(|run| !run.is_bot());
 
-    for run in &human {
-        print_run(run, false);
-    }
-    if !bots.is_empty() {
-        if !human.is_empty() {
-            println!("  {}", dim("bot"));
-        }
-        for run in &bots {
-            print_run(run, true);
-        }
-    }
+    print_bot_section(&human, &bots, print_run);
     println!();
 }
 
@@ -360,19 +339,19 @@ pub fn repo_report(
         ));
     }
     if !bot_prs.is_empty() {
-        parts.push(pluralize(bot_prs.len(), "bot PR"));
+        parts.push(util::plural(bot_prs.len(), "bot PR"));
     }
     if !issues.is_empty() {
-        parts.push(pluralize(issues.len(), "new issue"));
+        parts.push(util::plural(issues.len(), "new issue"));
     }
     if !human_runs.is_empty() {
-        parts.push(pluralize(human_runs.len(), "failed run"));
+        parts.push(util::plural(human_runs.len(), "failed run"));
     }
     if !bot_runs.is_empty() {
-        parts.push(pluralize(bot_runs.len(), "bot run"));
+        parts.push(util::plural(bot_runs.len(), "bot run"));
     }
     if !alerts.is_empty() {
-        parts.push(pluralize(alerts.len(), "vuln alert"));
+        parts.push(util::plural(alerts.len(), "vuln alert"));
     }
 
     println!(
@@ -381,17 +360,7 @@ pub fn repo_report(
         dim(&format!("({})", parts.join(", "))),
     );
 
-    for pr in &human_prs {
-        print_pr(pr, false);
-    }
-    if !bot_prs.is_empty() {
-        if !human_prs.is_empty() {
-            println!("  {}", dim("bot"));
-        }
-        for pr in &bot_prs {
-            print_pr(pr, true);
-        }
-    }
+    print_bot_section(&human_prs, &bot_prs, print_pr);
 
     for issue in issues {
         println!(
@@ -404,17 +373,7 @@ pub fn repo_report(
         );
     }
 
-    for run in &human_runs {
-        print_run(run, false);
-    }
-    if !bot_runs.is_empty() {
-        if !human_runs.is_empty() {
-            println!("  {}", dim("bot"));
-        }
-        for run in &bot_runs {
-            print_run(run, true);
-        }
-    }
+    print_bot_section(&human_runs, &bot_runs, print_run);
 
     for alert in alerts {
         let sev = alert.security_advisory.severity.as_str();
@@ -430,6 +389,21 @@ pub fn repo_report(
     }
 
     println!();
+}
+
+fn print_bot_section<T>(human: &[&T], bots: &[&T], print: impl Fn(&T, bool)) {
+    for item in human {
+        print(item, false);
+    }
+    if bots.is_empty() {
+        return;
+    }
+    if !human.is_empty() {
+        println!("  {}", dim("bot"));
+    }
+    for item in bots {
+        print(item, true);
+    }
 }
 
 fn print_pr(pr: &Pr, quiet: bool) {
@@ -463,23 +437,13 @@ fn print_pr(pr: &Pr, quiet: bool) {
 }
 
 fn print_run(run: &Run, quiet: bool) {
-    let title = if run.display_title.is_empty() {
-        run.name.as_str()
-    } else {
-        run.display_title.as_str()
-    };
-    let workflow = if run.workflow_name.is_empty() {
-        run.name.as_str()
-    } else {
-        run.workflow_name.as_str()
-    };
-    let lane = format!("[{workflow} @ {}]", run.head_branch);
+    let lane = format!("[{} @ {}]", run.workflow(), run.head_branch);
 
     if quiet {
         println!(
             "  {} {} {}  {}",
             dim(&format!("run #{}", run.database_id)),
-            dim(title),
+            dim(run.title()),
             dim(&lane),
             dim(&run.url),
         );
@@ -487,10 +451,9 @@ fn print_run(run: &Run, quiet: bool) {
         println!(
             "  {} {} {}  {}",
             paint_danger(&format!("run #{}", run.database_id)),
-            paint_title(title),
+            paint_title(run.title()),
             dim(&lane),
             dim(&run.url),
         );
     }
 }
-

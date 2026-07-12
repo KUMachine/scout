@@ -41,11 +41,19 @@ impl Run {
                 && (name.contains("update #") || title.contains("update #")))
     }
 
-    fn workflow_key(&self) -> &str {
-        if self.workflow_name.is_empty() {
-            self.name.as_str()
+    pub fn title(&self) -> &str {
+        if self.display_title.is_empty() {
+            &self.name
         } else {
-            self.workflow_name.as_str()
+            &self.display_title
+        }
+    }
+
+    pub fn workflow(&self) -> &str {
+        if self.workflow_name.is_empty() {
+            &self.name
+        } else {
+            &self.workflow_name
         }
     }
 }
@@ -117,7 +125,7 @@ fn analyze(runs: Vec<Run>) -> BranchReport {
         }
         let key = (
             normalize_branch(&run.head_branch).to_string(),
-            run.workflow_key().to_string(),
+            run.workflow().to_string(),
         );
         if let std::collections::hash_map::Entry::Vacant(e) = latest.entry(key.clone()) {
             e.insert(run);
