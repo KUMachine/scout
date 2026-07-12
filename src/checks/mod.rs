@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod gitops;
 pub mod issues;
 pub mod prs;
 pub mod snapshot;

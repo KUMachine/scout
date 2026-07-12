@@ -38,13 +38,15 @@ scout check
 | `scout add owner/repo`    | Add a repo to the watch list                                          |
 | `scout remove owner/repo` | Remove a repo                                                         |
 | `scout list`              | Print the watch list                                                  |
-| `scout check`             | Compact overview (PRs, issues, `dev`/`main` Actions, vuln severities) |
+| `scout check`             | App overview + separate GitOps staging/prod releases                  |
 | `scout prs`               | Open pull requests (human first, Dependabot dimmed)                   |
 | `scout issues`            | Open issues                                                           |
 | `scout actions`           | `dev` / `main` Actions status + current failures                      |
 | `scout vulns`             | Open Dependabot alerts (critical → low)                               |
 
 Pass optional `owner/repo …` args to any inspect command to override the watch list for that run.
+
+Repos ending in `-gitops` are skipped in the app table and shown under **GitOps** instead (`stg[●]` / `prod[✓]`), with waiting services parsed from the release PR body.
 
 ## Config
 

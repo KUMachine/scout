@@ -1,6 +1,7 @@
 use owo_colors::OwoColorize;
 
 use crate::checks::actions::{BranchReport, LaneStatus, Run};
+use crate::checks::gitops::{GitopsStatus, ReleasePr};
 use crate::checks::issues::Issue;
 use crate::checks::prs::Pr;
 use crate::checks::vulnerabilities::{Alert, AlertSummary};
@@ -248,6 +249,87 @@ pub fn summary_table(rows: &[RepoSummary]) {
                 .dimmed()
         );
     }
+}
+
+fn gitops_mark(open: bool) -> String {
+    if open {
+        "●".yellow().bold().to_string()
+    } else {
+        "✓".green().bold().to_string()
+    }
+}
+
+fn format_gitops_lanes(status: &GitopsStatus) -> String {
+    format!(
+        "stg[{}] prod[{}]",
+        gitops_mark(status.staging.is_some()),
+        gitops_mark(status.production.is_some()),
+    )
+}
+
+fn print_gitops_lane(label: &str, pr: &ReleasePr) {
+    println!(
+        "  {} {} {}  {}",
+        label.yellow().bold(),
+        pr.title.bright_cyan().bold(),
+        format!("#{}", pr.number).cyan().bold(),
+        pr.url.dimmed(),
+    );
+    if pr.services.is_empty() {
+        println!("    {}", "(no services listed in PR body)".dimmed());
+        return;
+    }
+    for service in &pr.services {
+        println!("    {} {}", "•".dimmed(), service.bright_green().bold());
+    }
+}
+
+/// Separate GitOps section: staging / production release status + waiting services.
+pub fn gitops_section(rows: &[GitopsStatus]) {
+    if rows.is_empty() {
+        return;
+    }
+
+    println!();
+    println!("{}", "GitOps".bold());
+
+    const REPO_H: &str = "REPO";
+    const LANE_H: &str = "RELEASES";
+
+    let repo_w = rows
+        .iter()
+        .map(|r| r.repo.len())
+        .chain(std::iter::once(REPO_H.len()))
+        .max()
+        .unwrap_or(REPO_H.len());
+    let lane_w = "stg[●] prod[●]".len().max(LANE_H.len());
+
+    println!(
+        "{}  {}",
+        format!("{REPO_H:<repo_w$}").bold(),
+        format!("{LANE_H:<lane_w$}").bold(),
+    );
+    println!("{}", "-".repeat(repo_w + lane_w + 2).dimmed());
+
+    for status in rows {
+        let lanes = format_gitops_lanes(status);
+        println!(
+            "{}  {}",
+            format!("{:<repo_w$}", status.repo).bright_green().bold(),
+            lanes,
+        );
+        if let Some(pr) = &status.staging {
+            print_gitops_lane("stg", pr);
+        }
+        if let Some(pr) = &status.production {
+            print_gitops_lane("prod", pr);
+        }
+    }
+
+    println!(
+        "{}",
+        "RELEASES  ● = open PR waiting to merge  ✓ = clear".dimmed()
+    );
 }
 
 /// Print main/dev lane status, then any current failed runs for a repo.

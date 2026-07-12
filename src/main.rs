@@ -7,7 +7,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use owo_colors::OwoColorize;
 
-use crate::checks::{actions, issues, prs, snapshot, vulnerabilities};
+use crate::checks::{actions, gitops, issues, prs, snapshot, vulnerabilities};
 
 #[derive(Parser)]
 #[command(
@@ -215,53 +215,89 @@ fn cmd_check(repo_args: Vec<String>) -> Result<()> {
         return Ok(());
     }
 
-    // GraphQL overview + Actions counts overlap in wall-clock time.
-    let (counts, runs_by_repo) = std::thread::scope(|s| {
-        let counts_h = s.spawn(|| match snapshot::fetch_counts(&repos) {
-            Ok(c) => c,
-            Err(err) => {
-                eprintln!(
-                    "{}: batched overview failed ({:#}); falling back to per-repo fetches",
-                    "warning".yellow().bold(),
-                    err
-                );
-                map_repos_parallel(&repos, |repo| {
-                    let prs = soft(repo, "PRs", prs::fetch(repo));
-                    let issues = soft(repo, "issues", issues::fetch(repo));
-                    let alerts = soft(repo, "vulnerability", vulnerabilities::fetch(repo));
-                    snapshot::RepoCounts {
-                        human_prs: prs.iter().filter(|p| !p.author.is_bot()).count(),
-                        bot_prs: prs.iter().filter(|p| p.author.is_bot()).count(),
-                        issues: issues.len(),
-                        alerts: vulnerabilities::AlertSummary::from_alerts(&alerts),
-                    }
-                })
+    let (app_repos, gitops_repos): (Vec<String>, Vec<String>) = repos
+        .into_iter()
+        .partition(|r| !gitops::GitopsStatus::is_gitops_repo(r));
+
+    // App repos: GraphQL overview + Actions. GitOps repos: release PRs only.
+    let (counts, runs_by_repo, gitops_statuses) = std::thread::scope(|s| {
+        let counts_h = s.spawn(|| {
+            if app_repos.is_empty() {
+                return Vec::new();
+            }
+            match snapshot::fetch_counts(&app_repos) {
+                Ok(c) => c,
+                Err(err) => {
+                    eprintln!(
+                        "{}: batched overview failed ({:#}); falling back to per-repo fetches",
+                        "warning".yellow().bold(),
+                        err
+                    );
+                    map_repos_parallel(&app_repos, |repo| {
+                        let prs = soft(repo, "PRs", prs::fetch(repo));
+                        let issues = soft(repo, "issues", issues::fetch(repo));
+                        let alerts = soft(repo, "vulnerability", vulnerabilities::fetch(repo));
+                        snapshot::RepoCounts {
+                            human_prs: prs.iter().filter(|p| !p.author.is_bot()).count(),
+                            bot_prs: prs.iter().filter(|p| p.author.is_bot()).count(),
+                            issues: issues.len(),
+                            alerts: vulnerabilities::AlertSummary::from_alerts(&alerts),
+                        }
+                    })
+                }
             }
         });
         let runs_h = s.spawn(|| {
-            map_repos_parallel(&repos, |repo| soft_branches(repo, actions::inspect(repo)))
+            if app_repos.is_empty() {
+                return Vec::new();
+            }
+            map_repos_parallel(&app_repos, |repo| soft_branches(repo, actions::inspect(repo)))
+        });
+        let gitops_h = s.spawn(|| {
+            map_repos_parallel(&gitops_repos, |repo| soft_gitops(repo, gitops::inspect(repo)))
         });
         (
             counts_h.join().expect("overview thread panicked"),
             runs_h.join().expect("actions thread panicked"),
+            gitops_h.join().expect("gitops thread panicked"),
         )
     });
 
-    let mut summaries: Vec<render::RepoSummary> = Vec::new();
-    for ((repo, snap), branches) in repos.iter().zip(counts).zip(runs_by_repo) {
-        summaries.push(render::RepoSummary {
-            repo: repo.clone(),
-            prs: snap.human_prs,
-            bot_prs: snap.bot_prs,
-            issues: snap.issues,
-            main: branches.main,
-            dev: branches.dev,
-            alerts: snap.alerts,
-        });
+    if !app_repos.is_empty() {
+        let mut summaries: Vec<render::RepoSummary> = Vec::new();
+        for ((repo, snap), branches) in app_repos.iter().zip(counts).zip(runs_by_repo) {
+            summaries.push(render::RepoSummary {
+                repo: repo.clone(),
+                prs: snap.human_prs,
+                bot_prs: snap.bot_prs,
+                issues: snap.issues,
+                main: branches.main,
+                dev: branches.dev,
+                alerts: snap.alerts,
+            });
+        }
+        render::summary_table(&summaries);
     }
 
-    render::summary_table(&summaries);
+    render::gitops_section(&gitops_statuses);
     Ok(())
+}
+
+fn soft_gitops(repo: &str, result: Result<gitops::GitopsStatus>) -> gitops::GitopsStatus {
+    match result {
+        Ok(n) => n,
+        Err(err) => {
+            eprintln!(
+                "{}: gitops check on {repo} failed: {:#}",
+                "warning".yellow().bold(),
+                err
+            );
+            gitops::GitopsStatus {
+                repo: repo.to_string(),
+                ..Default::default()
+            }
+        }
+    }
 }
 
 fn soft_branches(repo: &str, result: Result<actions::BranchReport>) -> actions::BranchReport {
