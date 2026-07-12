@@ -7,7 +7,7 @@ Requires the [GitHub CLI](https://cli.github.com/) (`gh`) authenticated on your 
 ## Install
 
 ```bash
-cargo install --git https://github.com/KUMachine/repscout --locked
+cargo install --git https://github.com/KUMachine/scout --locked
 ```
 
 That builds a release binary named `scout` into `~/.cargo/bin`.
@@ -15,7 +15,7 @@ That builds a release binary named `scout` into `~/.cargo/bin`.
 Update to the latest `main`:
 
 ```bash
-cargo install --git https://github.com/KUMachine/repscout --locked --force
+cargo install --git https://github.com/KUMachine/scout --locked --force
 ```
 
 ### Requirements
@@ -33,16 +33,16 @@ scout check
 
 ## Commands
 
-| Command | What it does |
-|---|---|
-| `scout add owner/repo` | Add a repo to the watch list |
-| `scout remove owner/repo` | Remove a repo |
-| `scout list` | Print the watch list |
-| `scout check` | Compact overview (PRs, issues, `dev`/`main` Actions, vuln severities) |
-| `scout prs` | Open pull requests (human first, Dependabot dimmed) |
-| `scout issues` | Open issues |
-| `scout actions` | `dev` / `main` Actions status + current failures |
-| `scout vulns` | Open Dependabot alerts (critical → low) |
+| Command                   | What it does                                                          |
+| ------------------------- | --------------------------------------------------------------------- |
+| `scout add owner/repo`    | Add a repo to the watch list                                          |
+| `scout remove owner/repo` | Remove a repo                                                         |
+| `scout list`              | Print the watch list                                                  |
+| `scout check`             | Compact overview (PRs, issues, `dev`/`main` Actions, vuln severities) |
+| `scout prs`               | Open pull requests (human first, Dependabot dimmed)                   |
+| `scout issues`            | Open issues                                                           |
+| `scout actions`           | `dev` / `main` Actions status + current failures                      |
+| `scout vulns`             | Open Dependabot alerts (critical → low)                               |
 
 Pass optional `owner/repo …` args to any inspect command to override the watch list for that run.
 
