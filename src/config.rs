@@ -18,6 +18,11 @@ fn repos_path() -> Result<PathBuf> {
     Ok(config_dir()?.join("repos.json"))
 }
 
+/// Path to the persisted watch list (for display in `scout list`).
+pub fn repos_file() -> Result<PathBuf> {
+    repos_path()
+}
+
 /// Validate an `owner/repo` slug. Returns the normalized slug on success.
 pub fn validate_slug(slug: &str) -> Result<String> {
     let slug = slug.trim();

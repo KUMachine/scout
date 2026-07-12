@@ -128,10 +128,42 @@ fn cmd_list() -> Result<()> {
         println!("No repos are being watched yet. Add one with `scout add owner/repo`.");
         return Ok(());
     }
-    println!("Watching {} repo(s):", repos.len());
+
+    println!(
+        "{} {}",
+        "Watching".bold(),
+        format!(
+            "{} repo{}",
+            repos.len(),
+            if repos.len() == 1 { "" } else { "s" }
+        )
+        .dimmed(),
+    );
+
+    // Group by owner so org-heavy watch lists stay scannable.
+    let mut by_owner: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
     for repo in &repos {
-        println!("  {repo}");
+        let (owner, name) = repo.split_once('/').unwrap_or(("", repo.as_str()));
+        by_owner
+            .entry(owner.to_string())
+            .or_default()
+            .push(name.to_string());
     }
+
+    for (owner, names) in &by_owner {
+        println!("{}", owner.dimmed());
+        for name in names {
+            println!("  {}", name.bright_green().bold());
+        }
+    }
+
+    println!();
+    println!(
+        "{} {}",
+        "config".dimmed(),
+        config::repos_file()?.display().to_string().dimmed()
+    );
     Ok(())
 }
 
