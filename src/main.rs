@@ -23,6 +23,7 @@ Inspect:
   prs     open pull requests
   issues  open issues
   actions main/dev Actions status
+  gitops  staging/prod release PRs
   vulns   open Dependabot alerts"
 )]
 struct Cli {
@@ -65,6 +66,11 @@ enum Command {
         /// Repos to check (owner/repo ...); defaults to the watch list
         repos: Vec<String>,
     },
+    /// Show staging/prod GitOps release status
+    Gitops {
+        /// GitOps repos (owner/repo ...); defaults to `*-gitops` on the watch list
+        repos: Vec<String>,
+    },
     /// List open Dependabot vulnerability alerts
     Vulns {
         /// Repos to check (owner/repo ...); defaults to the watch list
@@ -90,6 +96,7 @@ fn run(cli: Cli) -> Result<()> {
         Command::Prs { repos } => cmd_prs(repos),
         Command::Issues { repos } => cmd_issues(repos),
         Command::Actions { repos } => cmd_actions(repos),
+        Command::Gitops { repos } => cmd_gitops(repos),
         Command::Vulns { repos } => cmd_vulns(repos),
     }
 }
@@ -382,6 +389,29 @@ fn cmd_actions(repo_args: Vec<String>) -> Result<()> {
     for (repo, report) in repos.iter().zip(reports) {
         render::actions_report(repo, &report);
     }
+    Ok(())
+}
+
+fn cmd_gitops(repo_args: Vec<String>) -> Result<()> {
+    gh::ensure_available()?;
+    let repos = if repo_args.is_empty() {
+        config::load()?
+            .into_iter()
+            .filter(|r| gitops::GitopsStatus::is_gitops_repo(r))
+            .collect::<Vec<_>>()
+    } else {
+        resolve_repos(repo_args)?
+    };
+
+    if repos.is_empty() {
+        println!(
+            "No gitops repos to inspect. Add one with `scout add owner/something-gitops`."
+        );
+        return Ok(());
+    }
+
+    let statuses = map_repos_parallel(&repos, |repo| soft_gitops(repo, gitops::inspect(repo)));
+    render::gitops_section(&statuses);
     Ok(())
 }
 

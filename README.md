@@ -42,6 +42,7 @@ scout check
 | `scout prs`               | Open pull requests (human first, Dependabot dimmed)                   |
 | `scout issues`            | Open issues                                                           |
 | `scout actions`           | `dev` / `main` Actions status + current failures                      |
+| `scout gitops`            | Staging/prod release PRs for `*-gitops` repos                         |
 | `scout vulns`             | Open Dependabot alerts (critical → low)                               |
 
 Pass optional `owner/repo …` args to any inspect command to override the watch list for that run.
