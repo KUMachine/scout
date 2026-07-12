@@ -29,7 +29,7 @@ Inspect:
   vulns   open Dependabot alerts
 
 Settings:
-  theme   view or set color theme (cool, classic, mono)"
+  theme   view or set color theme (cool, classic, claude, discord, mono)"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -71,7 +71,7 @@ enum Command {
     Vulns(InspectArgs),
     /// View or set the color theme
     Theme {
-        /// Theme name: cool, classic, or mono (omit to list)
+        /// Theme name: cool, classic, claude, discord, or mono (omit to list)
         name: Option<String>,
     },
 }

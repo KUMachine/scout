@@ -44,7 +44,7 @@ scout check
 | `scout actions`           | `dev` / `main` Actions status + current failures                      |
 | `scout gitops`            | Staging/prod release PRs for `*-gitops` repos                         |
 | `scout vulns`             | Open Dependabot alerts (critical → low)                               |
-| `scout theme [name]`      | View or set color theme (`cool`, `classic`, `mono`)                   |
+| `scout theme [name]`      | View or set color theme (`cool`, `classic`, `claude`, `discord`, `mono`) |
 
 Pass optional `owner/repo …` args to any inspect command to override the watch list for that run.
 
@@ -63,6 +63,8 @@ Theme (`cool` by default — missing file means cool, nothing is created until y
 scout theme           # current + available
 scout theme classic   # green/yellow/red
 scout theme cool      # cyan/blue/magenta
+scout theme claude    # coral/teal/amber (Anthropic palette)
+scout theme discord   # blurple/green/magenta (Discord palette)
 scout theme mono      # no color
 ```
 
