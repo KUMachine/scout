@@ -36,7 +36,9 @@ scout check
 | Command                   | What it does                                                          |
 | ------------------------- | --------------------------------------------------------------------- |
 | `scout add owner/repo`    | Add a repo to the watch list                                          |
+| `scout add .`             | Add the current git repo (from `origin`)                              |
 | `scout remove owner/repo` | Remove a repo                                                         |
+| `scout remove .`          | Remove the current git repo                                           |
 | `scout list`              | Print the watch list                                                  |
 | `scout check`             | App overview + separate GitOps staging/prod releases                  |
 | `scout prs`               | Open pull requests (human first, Dependabot dimmed)                   |
@@ -47,7 +49,7 @@ scout check
 | `scout theme [name]`      | View or set color theme (`cool`, `classic`, `claude`, `discord`, `mono`) |
 | `scout complete <shell>`  | Print tab-completion script (`bash`, `zsh`, `fish`, `elvish`, `powershell`) |
 
-Pass optional `owner/repo …` args to any inspect command to override the watch list for that run.
+Pass optional `owner/repo …` args to any inspect command to override the watch list for that run. Use `.` to target only the current git repo (even if it is not on the watch list), e.g. `scout check .` or `scout vulns .`.
 
 Repos ending in `-gitops` are skipped in the app table and shown under **GitOps** instead (`stg[●]` / `prod[✓]`), with waiting services parsed from the release PR body.
 

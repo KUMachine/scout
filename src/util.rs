@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
+use std::process::Command;
 
-use anyhow::Result;
+use anyhow::{Context, Result, bail};
 
 use crate::config;
 use crate::theme::{dim, paint_warning};
@@ -8,16 +9,67 @@ use crate::theme::{dim, paint_warning};
 pub const EMPTY_WATCH_MSG: &str =
     "No repos are being watched yet. Add one with `scout add owner/repo`.";
 
+/// Resolve a repo argument: `.` means the current git repo, otherwise `owner/repo`.
+pub fn resolve_repo_arg(slug: &str) -> Result<String> {
+    let slug = slug.trim();
+    if slug == "." {
+        return current_repo_slug();
+    }
+    config::validate_slug(slug)
+}
+
 /// Resolve explicit repo args or fall back to the watch list.
 pub fn resolve_repos(repo_args: &[String]) -> Result<Vec<String>> {
     if repo_args.is_empty() {
         config::load()
     } else {
-        repo_args
-            .iter()
-            .map(|r| config::validate_slug(r))
-            .collect()
+        repo_args.iter().map(|r| resolve_repo_arg(r)).collect()
     }
+}
+
+/// Detect `owner/repo` for the git repository containing the current directory.
+pub fn current_repo_slug() -> Result<String> {
+    let in_tree = Command::new("git")
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+        .context("failed to run `git rev-parse`")?;
+
+    if !in_tree.status.success()
+        || String::from_utf8_lossy(&in_tree.stdout).trim() != "true"
+    {
+        bail!("not inside a git repository (`.` refers to the current repo)");
+    }
+
+    let output = Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .output()
+        .context("failed to run `git remote get-url origin`")?;
+
+    if !output.status.success() {
+        bail!("no `origin` remote found (`.` refers to the current repo's GitHub slug)");
+    }
+
+    let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    parse_github_remote(&url)
+}
+
+fn parse_github_remote(url: &str) -> Result<String> {
+    let url = url.trim().trim_end_matches(".git");
+
+    if let Some(rest) = url.strip_prefix("git@github.com:") {
+        return config::validate_slug(rest);
+    }
+    if let Some(rest) = url.strip_prefix("ssh://git@github.com/") {
+        return config::validate_slug(rest);
+    }
+    if let Some(rest) = url.strip_prefix("https://github.com/") {
+        return config::validate_slug(rest);
+    }
+    if let Some(rest) = url.strip_prefix("http://github.com/") {
+        return config::validate_slug(rest);
+    }
+
+    bail!("could not parse GitHub repo from remote URL `{url}`");
 }
 
 /// Load repos for an inspect command; print the empty-watch hint and return `None` when empty.
@@ -94,4 +146,30 @@ pub fn plural(n: usize, singular: &str) -> String {
 pub fn print_config_line(label: &str, path: &std::path::Path) -> Result<()> {
     println!("{} {}", dim(label), dim(&path.display().to_string()));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_github_remote, resolve_repo_arg};
+
+    #[test]
+    fn dot_resolves_to_current_repo() {
+        assert_eq!(resolve_repo_arg(".").unwrap(), "KUMachine/repscout");
+    }
+
+    #[test]
+    fn parse_ssh_remote() {
+        assert_eq!(
+            parse_github_remote("git@github.com:KUMachine/scout.git").unwrap(),
+            "KUMachine/scout"
+        );
+    }
+
+    #[test]
+    fn parse_https_remote() {
+        assert_eq!(
+            parse_github_remote("https://github.com/KUMachine/scout").unwrap(),
+            "KUMachine/scout"
+        );
+    }
 }

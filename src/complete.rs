@@ -15,18 +15,26 @@ pub fn themes() -> Vec<CompletionCandidate> {
         .collect()
 }
 
-/// Tab-complete `owner/repo` slugs from the watch list.
+/// Tab-complete `owner/repo` slugs from the watch list, plus `.` for the current repo.
 pub fn repos(current: &OsStr) -> Vec<CompletionCandidate> {
     let prefix = current.to_string_lossy();
+    let mut candidates = Vec::new();
+
+    if ".".starts_with(prefix.as_ref()) {
+        candidates.push(CompletionCandidate::new("."));
+    }
+
     let Ok(repos) = config::load() else {
-        return Vec::new();
+        return candidates;
     };
 
-    repos
-        .into_iter()
-        .filter(|repo| repo.starts_with(prefix.as_ref()))
-        .map(CompletionCandidate::new)
-        .collect()
+    candidates.extend(
+        repos
+            .into_iter()
+            .filter(|repo| repo.starts_with(prefix.as_ref()))
+            .map(CompletionCandidate::new),
+    );
+    candidates
 }
 
 /// Print a shell registration script to stdout (for `eval` / `source`).

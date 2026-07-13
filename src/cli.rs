@@ -17,7 +17,7 @@ pub fn apply_theme() -> Result<()> {
 }
 
 pub fn add(repo: &str) -> Result<()> {
-    let slug = config::validate_slug(repo)?;
+    let slug = util::resolve_repo_arg(repo)?;
     let mut repos = config::load()?;
     if repos.iter().any(|r| r == &slug) {
         println!("{slug} is already on the watch list.");
@@ -31,7 +31,7 @@ pub fn add(repo: &str) -> Result<()> {
 }
 
 pub fn remove(repo: &str) -> Result<()> {
-    let slug = config::validate_slug(repo)?;
+    let slug = util::resolve_repo_arg(repo)?;
     let mut repos = config::load()?;
     let before = repos.len();
     repos.retain(|r| r != &slug);

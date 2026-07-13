@@ -38,7 +38,7 @@ struct Cli {
     command: Command,
 }
 
-/// Repos to check (`owner/repo` …); defaults to the watch list.
+/// Repos to check (`owner/repo` …, or `.` for the current repo); defaults to the watch list.
 #[derive(clap::Args)]
 struct InspectArgs {
     #[arg(add = ArgValueCompleter::new(complete::repos))]
@@ -49,13 +49,13 @@ struct InspectArgs {
 enum Command {
     /// Add a repo to the watch list
     Add {
-        /// Repository in `owner/repo` form
+        /// Repository in `owner/repo` form, or `.` for the current repo
         #[arg(add = ArgValueCompleter::new(complete::repos))]
         repo: String,
     },
     /// Remove a repo from the watch list
     Remove {
-        /// Repository in `owner/repo` form
+        /// Repository in `owner/repo` form, or `.` for the current repo
         #[arg(add = ArgValueCompleter::new(complete::repos))]
         repo: String,
     },
