@@ -45,6 +45,7 @@ scout check
 | `scout gitops`            | Staging/prod release PRs for `*-gitops` repos                         |
 | `scout vulns`             | Open Dependabot alerts (critical → low)                               |
 | `scout theme [name]`      | View or set color theme (`cool`, `classic`, `claude`, `discord`, `mono`) |
+| `scout complete <shell>`  | Print tab-completion script (`bash`, `zsh`, `fish`, `elvish`, `powershell`) |
 
 Pass optional `owner/repo …` args to any inspect command to override the watch list for that run.
 
@@ -69,4 +70,30 @@ scout theme mono      # no color
 ```
 
 Stored in `config.json` next to `repos.json`. Set `NO_COLOR` in the environment to force mono for a single run without changing the saved theme.
+
+## Shell completion
+
+Tab-complete subcommands, theme names, and repos from your watch list.
+
+**zsh** (recommended — re-source on each shell start so completions stay in sync):
+
+```bash
+echo 'source <(scout complete zsh)' >> ~/.zshrc
+```
+
+**bash**:
+
+```bash
+echo 'eval "$(scout complete bash)"' >> ~/.bashrc
+```
+
+**fish**:
+
+```bash
+scout complete fish > ~/.config/fish/completions/scout.fish
+```
+
+Supported shells: `bash`, `zsh`, `fish`, `elvish`, `powershell`.
+
+Disable with `COMPLETE=` or `COMPLETE=0` in the environment.
 

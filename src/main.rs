@@ -1,5 +1,6 @@
 mod checks;
 mod cli;
+mod complete;
 mod config;
 mod gh;
 mod render;
@@ -7,8 +8,8 @@ mod theme;
 mod util;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
-
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{ArgValueCandidates, ArgValueCompleter, Shell};
 use crate::theme::paint_danger;
 
 #[derive(Parser)]
@@ -29,7 +30,8 @@ Inspect:
   vulns   open Dependabot alerts
 
 Settings:
-  theme   view or set color theme (cool, classic, claude, discord, mono)"
+  theme    view or set color theme (cool, classic, claude, discord, mono)
+  complete print shell tab-completion script (bash, zsh, fish, …)"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -39,6 +41,7 @@ struct Cli {
 /// Repos to check (`owner/repo` …); defaults to the watch list.
 #[derive(clap::Args)]
 struct InspectArgs {
+    #[arg(add = ArgValueCompleter::new(complete::repos))]
     repos: Vec<String>,
 }
 
@@ -47,11 +50,13 @@ enum Command {
     /// Add a repo to the watch list
     Add {
         /// Repository in `owner/repo` form
+        #[arg(add = ArgValueCompleter::new(complete::repos))]
         repo: String,
     },
     /// Remove a repo from the watch list
     Remove {
         /// Repository in `owner/repo` form
+        #[arg(add = ArgValueCompleter::new(complete::repos))]
         repo: String,
     },
     /// Print the watch list
@@ -72,11 +77,20 @@ enum Command {
     /// View or set the color theme
     Theme {
         /// Theme name: cool, classic, claude, discord, or mono (omit to list)
+        #[arg(add = ArgValueCandidates::new(complete::themes))]
         name: Option<String>,
+    },
+    /// Print shell tab-completion script (pipe into eval/source)
+    Complete {
+        /// Target shell
+        #[arg(value_enum)]
+        shell: Shell,
     },
 }
 
 fn main() {
+    clap_complete::CompleteEnv::with_factory(Cli::command).complete();
+
     let cli = Cli::parse();
     if let Err(err) = run(cli) {
         eprintln!("{}: {:#}", paint_danger("error"), err);
@@ -85,7 +99,10 @@ fn main() {
 }
 
 fn run(cli: Cli) -> Result<()> {
-    if !matches!(cli.command, Command::Theme { .. }) {
+    if !matches!(
+        cli.command,
+        Command::Theme { .. } | Command::Complete { .. }
+    ) {
         cli::apply_theme()?;
     }
 
@@ -100,5 +117,8 @@ fn run(cli: Cli) -> Result<()> {
         Command::Gitops(args) => cli::gitops(&args.repos),
         Command::Vulns(args) => cli::vulns(&args.repos),
         Command::Theme { name } => cli::theme(name),
+        Command::Complete { shell } => {
+            complete::emit_registration(&shell.to_string(), Cli::command)
+        }
     }
 }
