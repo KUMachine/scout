@@ -108,7 +108,7 @@ fn summary_service_name(inner: &str) -> Option<String> {
     if parts.is_empty() {
         return None;
     }
-    // "pis-identity-client v4.0.0" → drop the version token
+    // "scout-client-test v4.0.0" → drop the version token
     if parts.len() >= 2 && is_version_token(parts[1]) {
         return Some(parts[0].to_string());
     }
@@ -176,13 +176,13 @@ mod tests {
     fn parses_production_summaries() {
         let body = r#"# Releases
 <details>
-<summary>pis-identity-audits-api v0.1.1</summary>
+<summary>scout-api-test v0.1.1</summary>
 </details><details>
-<summary>pis-identity-client v4.0.0</summary>
+<summary>scout-client-test v4.0.0</summary>
 </details>"#;
         assert_eq!(
             parse_waiting_services(body),
-            vec!["pis-identity-audits-api", "pis-identity-client"]
+            vec!["scout-api-test", "scout-client-test"]
         );
     }
 }
