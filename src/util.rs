@@ -1,3 +1,5 @@
+//! Git subprocess helpers — only fixed read-only commands (`rev-parse`, `remote get-url`).
+
 use std::collections::BTreeMap;
 use std::process::Command;
 

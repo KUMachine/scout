@@ -17,5 +17,5 @@ pub struct Issue {
 }
 
 pub fn fetch(repo: &str) -> Result<Vec<Issue>> {
-    gh::list_items("issue", repo, "number,title,author,url,createdAt")
+    gh::list_issues(repo, "number,title,author,url,createdAt")
 }

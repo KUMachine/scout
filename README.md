@@ -7,16 +7,18 @@ Requires the [GitHub CLI](https://cli.github.com/) (`gh`) authenticated on your 
 ## Install
 
 ```bash
-cargo install --git https://github.com/KUMachine/scout --locked
+cargo install --git https://github.com/KUMachine/scout --tag v0.1.8 --locked
 ```
 
 That builds a release binary named `scout` into `~/.cargo/bin`.
 
-Update to the latest `main`:
+Update to a newer release:
 
 ```bash
-cargo install --git https://github.com/KUMachine/scout --locked --force
+cargo install --git https://github.com/KUMachine/scout --tag v0.1.8 --locked --force
 ```
+
+Prefer installing a **tagged release** over tracking `main` so you get a known, reviewable version.
 
 ### Requirements
 
@@ -98,4 +100,14 @@ scout complete fish > ~/.config/fish/completions/scout.fish
 Supported shells: `bash`, `zsh`, `fish`, `elvish`, `powershell`.
 
 Disable with `COMPLETE=` or `COMPLETE=0` in the environment.
+
+## Security
+
+Scout is **read-only**: it only lists PRs, issues, Actions, and Dependabot alerts via `gh`. It does not create or modify GitHub resources and has no direct network stack.
+
+- All `gh` invocations go through an audited allowlist in `src/gh.rs`.
+- CI blocks new subprocess or network dependencies outside that gateway.
+- Use a read-scoped `gh` token limited to the repos you watch when possible.
+
+See [SECURITY.md](SECURITY.md) for the threat model and how to report issues.
 

@@ -66,7 +66,17 @@ pub fn split_repo(slug: &str) -> Result<(&str, &str)> {
     if owner.is_empty() || name.is_empty() {
         bail!("expected repo in the form `owner/repo`, got `{slug}`");
     }
+    if !is_slug_part(owner) || !is_slug_part(name) {
+        bail!(
+            "repo slug contains invalid characters (use letters, digits, `.`, `-`, `_`): `{slug}`"
+        );
+    }
     Ok((owner, name))
+}
+
+fn is_slug_part(part: &str) -> bool {
+    part.chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_')
 }
 
 fn read_json<T: for<'de> Deserialize<'de> + Default>(path: &Path) -> Result<T> {
@@ -109,4 +119,27 @@ pub fn save_theme(theme: Theme) -> Result<()> {
     let mut cfg: AppConfig = read_json(&app_config_path()?)?;
     cfg.theme = theme.as_str().to_string();
     write_json(&app_config_path()?, &cfg, "config")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_repo;
+
+    #[test]
+    fn accepts_valid_slug() {
+        assert_eq!(
+            split_repo("KUMachine/scout").unwrap(),
+            ("KUMachine", "scout")
+        );
+    }
+
+    #[test]
+    fn rejects_path_traversal() {
+        assert!(split_repo("../../../etc/passwd").is_err());
+    }
+
+    #[test]
+    fn rejects_injection_chars() {
+        assert!(split_repo("owner/repo;rm").is_err());
+    }
 }

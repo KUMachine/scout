@@ -1,0 +1,8 @@
+# Security-sensitive paths require maintainer review.
+/src/gh.rs       @KUMachine
+/src/util.rs     @KUMachine
+/src/complete.rs @KUMachine
+/Cargo.toml      @KUMachine
+/Cargo.lock      @KUMachine
+/scripts/        @KUMachine
+/.github/        @KUMachine

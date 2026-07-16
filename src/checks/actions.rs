@@ -168,18 +168,7 @@ fn analyze(runs: Vec<Run>) -> BranchReport {
 }
 
 fn list_branch(repo: &str, branch: &str) -> Result<Vec<Run>> {
-    gh::run_json(&[
-        "run",
-        "list",
-        "--repo",
-        repo,
-        "--branch",
-        branch,
-        "--limit",
-        "20",
-        "--json",
-        RUN_JSON_FIELDS,
-    ])
+    gh::list_runs(repo, branch, RUN_JSON_FIELDS)
 }
 
 fn list_watched_branches(repo: &str) -> Result<Vec<Run>> {

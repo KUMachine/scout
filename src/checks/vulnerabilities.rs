@@ -103,8 +103,7 @@ impl Alert {
 /// (e.g. a 403 on repos where you're not an admin) as a soft warning.
 /// Results are sorted critical → high → moderate → low.
 pub fn fetch(repo: &str) -> Result<Vec<Alert>> {
-    let path = format!("repos/{repo}/dependabot/alerts?state=open");
-    let mut alerts: Vec<Alert> = gh::run_json(&["api", path.as_str()])?;
+    let mut alerts: Vec<Alert> = gh::dependabot_alerts(repo)?;
     alerts.sort_by(|a, b| {
         a.severity_rank()
             .cmp(&b.severity_rank())

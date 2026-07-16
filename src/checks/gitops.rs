@@ -122,16 +122,7 @@ fn is_version_token(s: &str) -> bool {
 
 /// Inspect open staging / production release PRs for a gitops repo.
 pub fn inspect(repo: &str) -> Result<GitopsStatus> {
-    let prs: Vec<RawPr> = gh::run_json(&[
-        "pr",
-        "list",
-        "--repo",
-        repo,
-        "--state",
-        "open",
-        "--json",
-        "number,title,url,body,headRefName,isDraft",
-    ])?;
+    let prs: Vec<RawPr> = gh::list_open_prs(repo, "number,title,url,body,headRefName,isDraft")?;
 
     let mut status = GitopsStatus {
         repo: repo.to_string(),

@@ -18,5 +18,5 @@ pub struct Pr {
 }
 
 pub fn fetch(repo: &str) -> Result<Vec<Pr>> {
-    gh::list_items("pr", repo, "number,title,author,url,createdAt,isDraft")
+    gh::list_prs(repo, "number,title,author,url,createdAt,isDraft")
 }
