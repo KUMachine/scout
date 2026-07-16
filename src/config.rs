@@ -73,8 +73,8 @@ fn read_json<T: for<'de> Deserialize<'de> + Default>(path: &Path) -> Result<T> {
     if !path.exists() {
         return Ok(T::default());
     }
-    let data =
-        std::fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
+    let data = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read {}", path.display()))?;
     if data.trim().is_empty() {
         return Ok(T::default());
     }
@@ -82,7 +82,8 @@ fn read_json<T: for<'de> Deserialize<'de> + Default>(path: &Path) -> Result<T> {
 }
 
 fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T, label: &str) -> Result<()> {
-    let data = serde_json::to_string_pretty(value).context(format!("failed to serialize {label}"))?;
+    let data =
+        serde_json::to_string_pretty(value).context(format!("failed to serialize {label}"))?;
     std::fs::write(path, data).with_context(|| format!("failed to write {}", path.display()))
 }
 

@@ -4,13 +4,17 @@ use crate::checks::issues::Issue;
 use crate::checks::prs::Pr;
 use crate::checks::vulnerabilities::{Alert, AlertSummary};
 use crate::theme::{
-    bold, color_severity, dim, paint_danger, paint_issue, paint_meta, paint_ok, paint_pr, paint_repo,
-    paint_sev_critical, paint_sev_high, paint_sev_low, paint_sev_moderate, paint_title, paint_wait,
+    bold, color_severity, dim, paint_danger, paint_issue, paint_meta, paint_ok, paint_pr,
+    paint_repo, paint_sev_critical, paint_sev_high, paint_sev_low, paint_sev_moderate, paint_title,
+    paint_wait,
 };
 use crate::util;
 
 fn col_width<'a>(values: impl Iterator<Item = usize> + 'a, header_len: usize) -> usize {
-    values.chain(std::iter::once(header_len)).max().unwrap_or(header_len)
+    values
+        .chain(std::iter::once(header_len))
+        .max()
+        .unwrap_or(header_len)
 }
 
 /// One row of the compact `check` table: new-item counts per repo.
@@ -184,12 +188,7 @@ pub fn summary_table(rows: &[RepoSummary]) {
     let rule_w = repo_w + pw + iw + rw + aw + 8; // 4 two-space gaps
     println!("{}", dim(&"-".repeat(rule_w)));
 
-    let (mut tp, mut tpb, mut ti, mut ta) = (
-        0usize,
-        0usize,
-        0usize,
-        AlertSummary::default(),
-    );
+    let (mut tp, mut tpb, mut ti, mut ta) = (0usize, 0usize, 0usize, AlertSummary::default());
     for row in rows {
         let lanes = format_lanes(row.main, row.dev);
         let pad = rw.saturating_sub(lanes_plain_len(row.main, row.dev));
@@ -306,7 +305,11 @@ pub fn gitops_section(rows: &[GitopsStatus]) {
 
 /// Print main/dev lane status, then any current failed runs for a repo.
 pub fn actions_report(repo: &str, report: &BranchReport) {
-    println!("{}  {}", paint_repo(repo), format_lanes(report.main, report.dev));
+    println!(
+        "{}  {}",
+        paint_repo(repo),
+        format_lanes(report.main, report.dev)
+    );
 
     let (human, bots): (Vec<&Run>, Vec<&Run>) =
         report.failures.iter().partition(|run| !run.is_bot());
@@ -318,13 +321,7 @@ pub fn actions_report(repo: &str, report: &BranchReport) {
 /// Print the per-item report for a single repo. Assumes the caller has
 /// already checked that at least one category is non-empty. Pass empty
 /// slices for categories you don't want to show.
-pub fn repo_report(
-    repo: &str,
-    prs: &[&Pr],
-    issues: &[&Issue],
-    runs: &[&Run],
-    alerts: &[&Alert],
-) {
+pub fn repo_report(repo: &str, prs: &[&Pr], issues: &[&Issue], runs: &[&Run], alerts: &[&Alert]) {
     let (human_prs, bot_prs): (Vec<&Pr>, Vec<&Pr>) =
         prs.iter().copied().partition(|pr| !pr.author.is_bot());
     let (human_runs, bot_runs): (Vec<&Run>, Vec<&Run>) =

@@ -79,7 +79,10 @@ pub fn theme(name: Option<String>) -> Result<()> {
             theme::apply(theme::effective_from_config(current));
             println!("{} {}", bold("theme"), paint_ok(current.as_str()));
             if std::env::var_os("NO_COLOR").is_some() {
-                println!("{}", theme::dim("(NO_COLOR set — output is mono for this run)"));
+                println!(
+                    "{}",
+                    theme::dim("(NO_COLOR set — output is mono for this run)")
+                );
             }
             println!();
             for t in Theme::ALL {
@@ -93,7 +96,11 @@ pub fn theme(name: Option<String>) -> Result<()> {
             let theme = Theme::parse(&name)?;
             config::save_theme(theme)?;
             theme::apply(theme::effective_from_config(theme));
-            println!("{} theme set to {}", paint_ok("✓"), paint_ok(theme.as_str()));
+            println!(
+                "{} theme set to {}",
+                paint_ok("✓"),
+                paint_ok(theme.as_str())
+            );
         }
     }
     Ok(())
@@ -116,20 +123,22 @@ pub fn check(repo_args: &[String]) -> Result<()> {
                 return Vec::new();
             }
             map_repos_parallel(&app_repos, |repo| {
-                soft_result(repo, "Actions", actions::inspect(repo), actions::BranchReport::default)
+                soft_result(
+                    repo,
+                    "Actions",
+                    actions::inspect(repo),
+                    actions::BranchReport::default,
+                )
             })
         });
         let gitops_h = s.spawn(|| {
             map_repos_parallel(&gitops_repos, |repo| {
-                soft_result(
-                    repo,
-                    "gitops",
-                    gitops::inspect(repo),
-                    || gitops::GitopsStatus {
+                soft_result(repo, "gitops", gitops::inspect(repo), || {
+                    gitops::GitopsStatus {
                         repo: repo.to_string(),
                         ..Default::default()
-                    },
-                )
+                    }
+                })
             })
         });
         (
@@ -188,10 +197,16 @@ fn fetch_overview_counts(app_repos: &[String]) -> Vec<snapshot::RepoCounts> {
 }
 
 pub fn prs(repo_args: &[String]) -> Result<()> {
-    focused(repo_args, "PRs", "No open PRs", prs::fetch, |repo, items| {
-        let refs: Vec<&_> = items.iter().collect();
-        render::repo_report(repo, &refs, &[], &[], &[]);
-    })
+    focused(
+        repo_args,
+        "PRs",
+        "No open PRs",
+        prs::fetch,
+        |repo, items| {
+            let refs: Vec<&_> = items.iter().collect();
+            render::repo_report(repo, &refs, &[], &[], &[]);
+        },
+    )
 }
 
 pub fn issues(repo_args: &[String]) -> Result<()> {
@@ -214,7 +229,12 @@ pub fn actions(repo_args: &[String]) -> Result<()> {
     };
 
     let reports = map_repos_parallel(&repos, |repo| {
-        soft_result(repo, "Actions", actions::inspect(repo), actions::BranchReport::default)
+        soft_result(
+            repo,
+            "Actions",
+            actions::inspect(repo),
+            actions::BranchReport::default,
+        )
     });
 
     for (repo, report) in repos.iter().zip(reports) {
@@ -235,22 +255,17 @@ pub fn gitops(repo_args: &[String]) -> Result<()> {
     };
 
     if repos.is_empty() {
-        println!(
-            "No gitops repos to inspect. Add one with `scout add owner/something-gitops`."
-        );
+        println!("No gitops repos to inspect. Add one with `scout add owner/something-gitops`.");
         return Ok(());
     }
 
     let statuses = map_repos_parallel(&repos, |repo| {
-        soft_result(
-            repo,
-            "gitops",
-            gitops::inspect(repo),
-            || gitops::GitopsStatus {
+        soft_result(repo, "gitops", gitops::inspect(repo), || {
+            gitops::GitopsStatus {
                 repo: repo.to_string(),
                 ..Default::default()
-            },
-        )
+            }
+        })
     });
     render::gitops_section(&statuses);
     Ok(())

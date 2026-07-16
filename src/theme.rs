@@ -402,11 +402,5 @@ pub fn paint_sev_moderate(s: &str) -> String {
 }
 
 pub fn paint_sev_low(s: &str) -> String {
-    themed(
-        s,
-        bright_black,
-        bright_black,
-        claude_muted,
-        discord_muted,
-    )
+    themed(s, bright_black, bright_black, claude_muted, discord_muted)
 }

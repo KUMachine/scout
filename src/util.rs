@@ -34,9 +34,7 @@ pub fn current_repo_slug() -> Result<String> {
         .output()
         .context("failed to run `git rev-parse`")?;
 
-    if !in_tree.status.success()
-        || String::from_utf8_lossy(&in_tree.stdout).trim() != "true"
-    {
+    if !in_tree.status.success() || String::from_utf8_lossy(&in_tree.stdout).trim() != "true" {
         bail!("not inside a git repository (`.` refers to the current repo)");
     }
 

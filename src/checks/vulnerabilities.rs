@@ -84,7 +84,12 @@ impl AlertSummary {
 impl Alert {
     /// Lower = more severe. Used for sorting lists critical-first.
     fn severity_rank(&self) -> u8 {
-        match self.security_advisory.severity.to_ascii_lowercase().as_str() {
+        match self
+            .security_advisory
+            .severity
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "critical" => 0,
             "high" => 1,
             "moderate" | "medium" => 2,

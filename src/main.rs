@@ -7,10 +7,10 @@ mod render;
 mod theme;
 mod util;
 
+use crate::theme::paint_danger;
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{ArgValueCandidates, ArgValueCompleter, Shell};
-use crate::theme::paint_danger;
 
 #[derive(Parser)]
 #[command(
