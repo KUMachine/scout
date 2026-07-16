@@ -181,7 +181,9 @@ fn validate_pr_args(args: &[&str]) -> Result<()> {
     }
     expect_shape(
         args,
-        &["pr", "list", "--repo", "*", "--state", "open", "--json", "*"],
+        &[
+            "pr", "list", "--repo", "*", "--state", "open", "--json", "*",
+        ],
         "gh pr list --state open",
     )
 }
@@ -199,16 +201,7 @@ fn validate_run_args(args: &[&str]) -> Result<()> {
     expect_shape(
         args,
         &[
-            "run",
-            "list",
-            "--repo",
-            "*",
-            "--branch",
-            "*",
-            "--limit",
-            "20",
-            "--json",
-            "*",
+            "run", "list", "--repo", "*", "--branch", "*", "--limit", "20", "--json", "*",
         ],
         "gh run list",
     )?;
