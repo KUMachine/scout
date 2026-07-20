@@ -264,6 +264,12 @@ pub fn bold(s: &str) -> String {
     when_colored(s, |t| t.bold().to_string())
 }
 
+/// Make a URL clickable via OSC 8 (supported by Terminal.app, iTerm2, VS Code,
+/// Ghostty, kitty, WezTerm, Windows Terminal, etc.). Display text stays dimmed.
+pub fn link(url: &str) -> String {
+    format!("\x1b]8;;{url}\x1b\\{}\x1b]8;;\x1b\\", dim(url))
+}
+
 pub fn paint_repo(s: &str) -> String {
     themed(
         s,

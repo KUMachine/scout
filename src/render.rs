@@ -4,7 +4,7 @@ use crate::checks::issues::Issue;
 use crate::checks::prs::Pr;
 use crate::checks::vulnerabilities::{Alert, AlertSummary};
 use crate::theme::{
-    bold, color_severity, dim, paint_danger, paint_issue, paint_meta, paint_ok, paint_pr,
+    bold, color_severity, dim, link, paint_danger, paint_issue, paint_meta, paint_ok, paint_pr,
     paint_repo, paint_sev_critical, paint_sev_high, paint_sev_low, paint_sev_moderate, paint_title,
     paint_wait,
 };
@@ -249,7 +249,7 @@ fn print_gitops_lane(label: &str, pr: &ReleasePr) {
         paint_wait(label),
         paint_title(&pr.title),
         paint_pr(&format!("#{}", pr.number)),
-        dim(&pr.url),
+        link(&pr.url),
     );
     if pr.services.is_empty() {
         println!("    {}", dim("(no services listed in PR body)"));
@@ -366,7 +366,7 @@ pub fn repo_report(repo: &str, prs: &[&Pr], issues: &[&Issue], runs: &[&Run], al
             paint_title(&issue.title),
             dim("by"),
             paint_meta(&format!("@{}", issue.author.login)),
-            dim(&issue.url),
+            link(&issue.url),
         );
     }
 
@@ -381,7 +381,7 @@ pub fn repo_report(repo: &str, prs: &[&Pr], issues: &[&Issue], runs: &[&Run], al
             severity,
             paint_repo(&alert.dependency.package.name),
             alert.security_advisory.summary,
-            dim(&alert.html_url),
+            link(&alert.html_url),
         );
     }
 
@@ -418,7 +418,7 @@ fn print_pr(pr: &Pr, quiet: bool) {
             draft,
             dim("by"),
             dim(&format!("@{}", pr.author.login)),
-            dim(&pr.url),
+            link(&pr.url),
         );
     } else {
         println!(
@@ -428,7 +428,7 @@ fn print_pr(pr: &Pr, quiet: bool) {
             draft,
             dim("by"),
             paint_meta(&format!("@{}", pr.author.login)),
-            dim(&pr.url),
+            link(&pr.url),
         );
     }
 }
@@ -442,7 +442,7 @@ fn print_run(run: &Run, quiet: bool) {
             dim(&format!("run #{}", run.database_id)),
             dim(run.title()),
             dim(&lane),
-            dim(&run.url),
+            link(&run.url),
         );
     } else {
         println!(
@@ -450,7 +450,7 @@ fn print_run(run: &Run, quiet: bool) {
             paint_danger(&format!("run #{}", run.database_id)),
             paint_title(run.title()),
             dim(&lane),
-            dim(&run.url),
+            link(&run.url),
         );
     }
 }
