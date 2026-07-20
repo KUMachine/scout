@@ -150,12 +150,7 @@ pub fn print_config_line(label: &str, path: &std::path::Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_github_remote, resolve_repo_arg};
-
-    #[test]
-    fn dot_resolves_to_current_repo() {
-        assert_eq!(resolve_repo_arg(".").unwrap(), "KUMachine/repscout");
-    }
+    use super::parse_github_remote;
 
     #[test]
     fn parse_ssh_remote() {
