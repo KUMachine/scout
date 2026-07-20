@@ -7,7 +7,7 @@ Requires the [GitHub CLI](https://cli.github.com/) (`gh`) authenticated on your 
 ## Install
 
 ```bash
-cargo install --git https://github.com/KUMachine/repscout --tag v0.1.9 --locked
+cargo install --git https://github.com/KUMachine/repscout --tag v0.1.10 --locked
 ```
 
 That builds a release binary named `scout` into `~/.cargo/bin`.
@@ -15,7 +15,7 @@ That builds a release binary named `scout` into `~/.cargo/bin`.
 Update to a newer release:
 
 ```bash
-cargo install --git https://github.com/KUMachine/repscout --tag v0.1.9 --locked --force
+cargo install --git https://github.com/KUMachine/repscout --tag v0.1.10 --locked --force
 ```
 
 Prefer installing a **tagged release** over tracking `main` so you get a known, reviewable version.

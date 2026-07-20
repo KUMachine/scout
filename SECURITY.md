@@ -13,7 +13,7 @@ All GitHub access goes through the [`gh` CLI](https://cli.github.com/) on your m
 - Install a **tagged release** rather than tracking `main`:
 
   ```bash
-  cargo install --git https://github.com/KUMachine/repscout --tag v0.1.9 --locked
+  cargo install --git https://github.com/KUMachine/repscout --tag v0.1.10 --locked
   ```
 
 ## Reporting a vulnerability
