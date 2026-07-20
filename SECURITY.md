@@ -13,12 +13,12 @@ All GitHub access goes through the [`gh` CLI](https://cli.github.com/) on your m
 - Install a **tagged release** rather than tracking `main`:
 
   ```bash
-  cargo install --git https://github.com/KUMachine/scout --tag v0.1.8 --locked
+  cargo install --git https://github.com/KUMachine/repscout --tag v0.1.9 --locked
   ```
 
 ## Reporting a vulnerability
 
-Please report security issues privately by opening a [GitHub Security Advisory](https://github.com/KUMachine/scout/security/advisories/new) or emailing the repository maintainers. Do not file public issues for undisclosed vulnerabilities.
+Please report security issues privately by opening a [GitHub Security Advisory](https://github.com/KUMachine/repscout/security/advisories/new) or emailing the repository maintainers. Do not file public issues for undisclosed vulnerabilities.
 
 We aim to acknowledge reports within 72 hours.
 

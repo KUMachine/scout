@@ -5,8 +5,8 @@ edition = "2024"
 description = "Watch GitHub repos and see what's currently open — PRs, issues, Actions, and vulns"
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/KUMachine/scout"
-homepage = "https://github.com/KUMachine/scout"
+repository = "https://github.com/KUMachine/repscout"
+homepage = "https://github.com/KUMachine/repscout"
 keywords = ["github", "cli", "prs", "actions", "dependabot"]
 categories = ["command-line-utilities", "development-tools"]
 

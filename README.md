@@ -7,7 +7,7 @@ Requires the [GitHub CLI](https://cli.github.com/) (`gh`) authenticated on your 
 ## Install
 
 ```bash
-cargo install --git https://github.com/KUMachine/scout --tag v0.1.8 --locked
+cargo install --git https://github.com/KUMachine/repscout --tag v0.1.9 --locked
 ```
 
 That builds a release binary named `scout` into `~/.cargo/bin`.
@@ -15,10 +15,12 @@ That builds a release binary named `scout` into `~/.cargo/bin`.
 Update to a newer release:
 
 ```bash
-cargo install --git https://github.com/KUMachine/scout --tag v0.1.8 --locked --force
+cargo install --git https://github.com/KUMachine/repscout --tag v0.1.9 --locked --force
 ```
 
 Prefer installing a **tagged release** over tracking `main` so you get a known, reviewable version.
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ### Requirements
 
@@ -110,4 +112,14 @@ Scout is **read-only**: it only lists PRs, issues, Actions, and Dependabot alert
 - Use a read-scoped `gh` token limited to the repos you watch when possible.
 
 See [SECURITY.md](SECURITY.md) for the threat model and how to report issues.
+
+## Releasing
+
+`scout` uses [SemVer](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/).
+
+1. Add bullets under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) for user-visible changes.
+2. Run `./scripts/release.sh X.Y.Z` (bumps `Cargo.toml`, folds the changelog, updates install pins, commits, and tags).
+3. Push: `git push origin main --tags` — CI creates a GitHub Release from the changelog section.
+
+Versioning while still `0.x`: **patch** for fixes/polish, **minor** for new commands or behavior, **major** (`1.0.0`) when the CLI contract is stable.
 
